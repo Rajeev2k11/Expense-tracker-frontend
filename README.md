@@ -1,3 +1,26 @@
+# ExpensesFlow — Frontend (dev)
+
+Quickstarter frontend built with React + Vite + TypeScript.
+
+What I added so far
+- Project dependencies updated in `package.json` (routing, axios, recharts, forms, zod, MSW, etc.)
+- MSW mocks in `src/mocks` with realistic endpoints
+- `AuthContext` (login/signup/logout, localStorage)
+- Core layout: `Sidebar`, `Topbar`, `Layout`, protected routes
+- Pages: `Dashboard`, `Expenses`, `Team`, `Reports`, `Cards`, `Settings`, `Auth` (login/signup)
+- Basic Recharts line + donut components
+
+Run (Windows PowerShell)
+```powershell
+npm install
+npm run dev
+```
+
+Notes & next steps
+- MSW starts automatically in dev mode. Ensure `import.meta.env.DEV` is true for local run.
+- I still need to finish: expense edit modal, filters & sorting, recent transactions list, team activity feed, mobile sidebar behavior, polish styles to exactly match the screenshot.
+
+If you want, I'll continue and implement the remaining features now (full CRUD UI for expenses, role-based dashboard variants, activity feed, mobile responsiveness and polish). Say "Continue" and I'll proceed to the next set of tasks.
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
