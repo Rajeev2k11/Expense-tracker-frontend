@@ -54,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ignore
       }
     }
-  }, []);
+  }, [user]);
 
   const commit = (u: User | null) => {
     setUser(u);
@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStoredUsers(updatedUsers);
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string) => {
     setLoading(true);
     try {
       // Dummy local login: accept any password; if user exists, return it; otherwise create a lightweight user
@@ -188,6 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const c = useContext(AuthContext);
   if (!c) throw new Error('useAuth must be used within AuthProvider');

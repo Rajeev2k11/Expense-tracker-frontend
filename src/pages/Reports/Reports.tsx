@@ -4,7 +4,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
-import { Download, Filter, Calendar, TrendingUp, PieChart, BarChart3, Users, DollarSign, Search, X, Share2, Eye } from 'lucide-react';
+import { Download, Filter, Calendar, TrendingUp, PieChart, BarChart3, Users, DollarSign, Search, Share2, Eye } from 'lucide-react';
 
 interface Report {
   id: string;
@@ -12,6 +12,7 @@ interface Report {
   date: string;
   type: string;
   size: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any;
 }
 
@@ -34,7 +35,12 @@ const Reports: React.FC = () => {
   useEffect(() => {
     const storedReports = localStorage.getItem('generatedReports');
     if (storedReports) {
-      setReports(JSON.parse(storedReports));
+      try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setReports(JSON.parse(storedReports));
+      } catch (error) {
+        console.error('Failed to load reports:', error);
+      }
     }
   }, []);
 

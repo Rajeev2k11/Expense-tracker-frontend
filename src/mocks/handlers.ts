@@ -25,23 +25,23 @@ export const handlers = [
     return res(ctx.status(200), ctx.json({ user }));
   }),
 
-  rest.get('/api/dashboard/stats', (req, res, ctx) => {
+  rest.get('/api/dashboard/stats', (_req, res, ctx) => {
     return res(ctx.status(200), ctx.json(dashboard.stats));
   }),
 
-  rest.get('/api/dashboard/spending', (req, res, ctx) => {
+  rest.get('/api/dashboard/spending', (_req, res, ctx) => {
     return res(ctx.status(200), ctx.json(dashboard.spending));
   }),
 
-  rest.get('/api/dashboard/categories', (req, res, ctx) => {
+  rest.get('/api/dashboard/categories', (_req, res, ctx) => {
     return res(ctx.status(200), ctx.json(dashboard.categories));
   }),
 
-  rest.get('/api/transactions', (req, res, ctx) => {
+  rest.get('/api/transactions', (_req, res, ctx) => {
     return res(ctx.status(200), ctx.json(transactions));
   }),
 
-  rest.get('/api/teams', (req, res, ctx) => {
+  rest.get('/api/teams', (_req, res, ctx) => {
     return res(ctx.status(200), ctx.json(teams));
   }),
 

@@ -6,7 +6,7 @@ import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import api from '../../services/api';
 import type { Team, User, Role } from '../../types';
-import { Users, Plus, Search, Mail, MoreVertical, UserPlus, Settings, Download, Trash2, Edit } from 'lucide-react';
+import { Users, Plus, Search, Mail, UserPlus, Settings, Download, Trash2, Edit } from 'lucide-react';
 
 const TeamPage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -463,7 +463,7 @@ const TeamPage: React.FC = () => {
                           <div>
                             <p className="text-sm font-medium text-gray-900">{member.fullName}</p>
                             <Badge 
-                              status={getRoleColor(member.role) as any} 
+                              status={getRoleColor(member.role) as 'default'} 
                               size="sm"
                               className="mt-1"
                             >
@@ -606,7 +606,7 @@ const TeamPage: React.FC = () => {
                         <div>
                           <p className="font-medium text-gray-900">{member.fullName}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge status={getRoleColor(member.role) as any} size="sm">
+                            <Badge status={getRoleColor(member.role) as 'default'} size="sm">
                               {member.role}
                             </Badge>
                             <span className="text-sm text-gray-500">{member.email}</span>

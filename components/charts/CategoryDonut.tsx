@@ -1,13 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 
 const COLORS = ['#374151', '#6B7280', '#9CA3AF', '#D1D5DB', '#4B5563', '#71717A', '#52525B', '#A1A1AA'];
 
-const CategoryDonut: React.FC<{ data: { name: string; value: number }[] | any }> = ({ data }) => {
+interface DataItem {
+  name: string;
+  value: number;
+}
+
+interface CategoryDonutProps {
+  data: DataItem[] | unknown;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload as DataItem;
+    
+    return (
+      <div className="bg-white p-4 border border-gray-200 shadow-xl rounded-lg min-w-[140px] backdrop-blur-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <div 
+            className="w-3 h-3 rounded-full"
+            style={{ backgroundColor: payload[0].color }}
+          ></div>
+          <p className="font-semibold text-gray-900 text-sm">{data.name}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-gray-600 text-sm">
+            Amount: <span className="font-bold">${data.value.toLocaleString()}</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+const CategoryDonut: React.FC<CategoryDonutProps> = ({ data }) => {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const safeData: { name: string; value: number }[] = Array.isArray(data) ? data : [];
+  
+  const safeData = useMemo(() => {
+    return Array.isArray(data) ? data : [];
+  }, [data]);
   
   if (!Array.isArray(data)) console.warn('CategoryDonut received non-array data:', data);
+
+
+  const totalValue = useMemo(() => safeData.reduce((sum, item) => sum + item.value, 0), [safeData]);
 
   if (safeData.length === 0) {
     return (
@@ -23,37 +63,9 @@ const CategoryDonut: React.FC<{ data: { name: string; value: number }[] | any }>
     );
   }
 
-  const totalValue = safeData.reduce((sum, item) => sum + item.value, 0);
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const percentage = ((data.value / totalValue) * 100).toFixed(1);
-      
-      return (
-        <div className="bg-white p-4 border border-gray-200 shadow-xl rounded-lg min-w-[140px] backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <div 
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: payload[0].color }}
-            ></div>
-            <p className="font-semibold text-gray-900 text-sm">{data.name}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-gray-600 text-sm">
-              Amount: <span className="font-bold">${data.value.toLocaleString()}</span>
-            </p>
-            <p className="text-gray-500 text-xs">
-              Percentage: <span className="font-semibold">{percentage}%</span>
-            </p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomLabel = (props: any) => {
+    const { cx, cy, midAngle, innerRadius, outerRadius, percent, index } = props;
     if (percent < 0.08) return null; // Hide label for very small slices
     
     const RADIAN = Math.PI / 180;
@@ -86,6 +98,7 @@ const CategoryDonut: React.FC<{ data: { name: string; value: number }[] | any }>
     );
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onPieEnter = (_: any, index: number) => {
     setActiveIndex(index);
   };
@@ -94,11 +107,13 @@ const CategoryDonut: React.FC<{ data: { name: string; value: number }[] | any }>
     setActiveIndex(null);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderLegend = (props: any) => {
     const { payload } = props;
 
     return (
       <div className="flex flex-col gap-2 mt-4">
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         {payload.map((entry: any, index: number) => {
           const percentage = ((entry.payload.value / totalValue) * 100).toFixed(1);
           const isActive = activeIndex === index;
@@ -114,7 +129,7 @@ const CategoryDonut: React.FC<{ data: { name: string; value: number }[] | any }>
             >
               <div className="flex items-center gap-3">
                 <div 
-                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  className="w-3 h-3 rounded-full shrink-0"
                   style={{ backgroundColor: entry.color }}
                 ></div>
                 <span className="text-sm text-gray-700 font-medium">{entry.value}</span>

@@ -13,20 +13,11 @@ import {
   Upload,
   Save,
   Palette,
-  Globe,
   Database
 } from 'lucide-react';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
-
-  const generalSettings = {
-    language: 'English',
-    timezone: 'UTC-5 (Eastern Time)',
-    dateFormat: 'MM/DD/YYYY',
-    currency: 'USD - US Dollar',
-    theme: 'Light'
-  };
 
   const notificationSettings = {
     emailNotifications: true,

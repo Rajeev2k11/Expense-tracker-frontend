@@ -9,7 +9,6 @@ import {
   Mail, 
   Phone, 
   MapPin, 
-  Calendar, 
   Edit3, 
   Save, 
   Camera, 
@@ -176,7 +175,7 @@ const ProfilePage: React.FC = () => {
                         className="w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover"
                       />
                     ) : (
-                      <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold border-4 border-white shadow-lg">
+                      <div className="w-24 h-24 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold border-4 border-white shadow-lg">
                         {getInitials(formData.fullName)}
                       </div>
                     )}
@@ -222,7 +221,7 @@ const ProfilePage: React.FC = () => {
                       Full Name
                     </label>
                     <div className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg">
-                      <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <User className="w-4 h-4 text-gray-400 shrink-0" />
                       <input
                         type="text"
                         value={formData.fullName}
@@ -239,7 +238,7 @@ const ProfilePage: React.FC = () => {
                       Email Address
                     </label>
                     <div className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg">
-                      <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <Mail className="w-4 h-4 text-gray-400 shrink-0" />
                       <input
                         type="email"
                         value={formData.email}
@@ -256,7 +255,7 @@ const ProfilePage: React.FC = () => {
                       Phone Number
                     </label>
                     <div className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg">
-                      <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <Phone className="w-4 h-4 text-gray-400 shrink-0" />
                       <input
                         type="tel"
                         value={formData.phone}
@@ -273,7 +272,7 @@ const ProfilePage: React.FC = () => {
                       Location
                     </label>
                     <div className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg">
-                      <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
                       <input
                         type="text"
                         value={formData.location}
@@ -290,7 +289,7 @@ const ProfilePage: React.FC = () => {
                       Department
                     </label>
                     <div className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg">
-                      <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <User className="w-4 h-4 text-gray-400 shrink-0" />
                       <select
                         value={formData.department}
                         onChange={(e) => handleInputChange('department', e.target.value)}
@@ -460,7 +459,7 @@ const ProfilePage: React.FC = () => {
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked={item.enabled} />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                       </label>
                     </div>
                   ))}
@@ -490,7 +489,7 @@ const ProfilePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card padding="lg" hover={true}>
                     <div className="text-center">
-                      <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <div className="w-16 h-16 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
                         <CreditCard className="w-8 h-8 text-white" />
                       </div>
                       <h3 className="text-lg font-bold text-gray-900 mb-2">Current Plan</h3>

@@ -9,7 +9,6 @@ import {
   Mail, 
   Phone, 
   MapPin, 
-  Calendar, 
   Edit3, 
   Save, 
   Camera, 

@@ -1,6 +1,22 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area } from 'recharts';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 border border-gray-200 shadow-lg rounded-lg">
+        <p className="text-sm font-medium text-gray-900">{label}</p>
+        <p className="text-sm text-gray-600">
+          Amount: <span className="font-semibold">${payload[0].value.toLocaleString()}</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SpendingLine: React.FC<{ data: { date: string; value: number }[] | any }> = ({ data }) => {
   const safeData: { date: string; value: number }[] = Array.isArray(data) ? data : [];
   if (!Array.isArray(data)) console.warn('SpendingLine received non-array data:', data);
@@ -17,20 +33,6 @@ const SpendingLine: React.FC<{ data: { date: string; value: number }[] | any }> 
       </div>
     );
   }
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 border border-gray-200 shadow-lg rounded-lg">
-          <p className="text-sm font-medium text-gray-900">{label}</p>
-          <p className="text-sm text-gray-600">
-            Amount: <span className="font-semibold">${payload[0].value.toLocaleString()}</span>
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <ResponsiveContainer width="100%" height="100%">

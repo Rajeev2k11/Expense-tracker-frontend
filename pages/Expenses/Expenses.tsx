@@ -4,9 +4,8 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import api from '../../services/api';
 import { useForm } from 'react-hook-form';
-import { Plus, Search, Download, Trash2, Calendar, DollarSign, Tag, Edit } from 'lucide-react';
+import { Plus, Search, Download, Trash2, Calendar, DollarSign, Tag } from 'lucide-react';
 
 export type Expense = {
   id: string;
@@ -103,6 +102,7 @@ const ExpensesPage: React.FC = () => {
     setShowDeleteModal(false);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onAdd = async (data: any) => {
     const newExpense: Expense = {
       id: Date.now().toString(),
@@ -119,13 +119,7 @@ const ExpensesPage: React.FC = () => {
     reset();
   };
 
-  const onEdit = async (id: string, data: any) => {
-    setExpenses(prev => prev.map(expense => 
-      expense.id === id 
-        ? { ...expense, ...data, amount: parseFloat(data.amount) }
-        : expense
-    ));
-  };
+  // Placeholder for edit functionality not currently implemented
 
   const filteredExpenses = expenses.filter(expense => {
     const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

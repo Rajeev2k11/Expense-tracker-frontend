@@ -27,11 +27,11 @@ const Signup: React.FC = () => {
       const { fieldErrors } = parsed.error.flatten();
       Object.entries(fieldErrors).forEach(([key, messages]) => {
         const msg = Array.isArray(messages) && messages.length ? messages[0] : 'Invalid';
-        setError(key as any, { type: 'manual', message: msg });
+        setError(key as keyof Form, { type: 'manual', message: msg });
       });
       return;
     }
-    await signup(parsed.data as any);
+    await signup(parsed.data as Form & { password: string });
     navigate('/');
   };
 

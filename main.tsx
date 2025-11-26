@@ -8,9 +8,9 @@ async function prepare() {
     try {
       const { worker } = await import('./mocks/browser');
       await worker.start();
-    } catch (e) {
+    } catch {
       // ignore worker start errors in non-browser environments
-      // console.warn('MSW failed to start', e);
+      // console.warn('MSW failed to start');
     }
   }
 }
