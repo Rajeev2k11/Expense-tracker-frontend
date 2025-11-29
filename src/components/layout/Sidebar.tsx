@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom'; // useNavigate add kiya
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   LayoutDashboard, 
@@ -10,13 +10,14 @@ import {
   LogOut,
   User,
   ChevronDown,
-  X
+  X,
+  Shield // Admin icon ke liye
 } from 'lucide-react';
 
 const Sidebar: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const { user, isAdmin, logout } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const navigate = useNavigate(); // useNavigate hook use kiya
+  const navigate = useNavigate();
 
   const adminLinks = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -24,7 +25,8 @@ const Sidebar: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
     { to: '/team', label: 'Team', icon: Users },
     { to: '/reports', label: 'Reports', icon: BarChart3 },
     { to: '/settings', label: 'Settings', icon: Settings },
-    { to: '/profile', label: 'Profile', icon: User }, // Profile link add kiya
+    { to: '/profile', label: 'Profile', icon: User },
+    { to: '/admin', label: 'Admin Panel', icon: Shield },
   ];
 
   const memberLinks = [
@@ -32,7 +34,7 @@ const Sidebar: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
     { to: '/expenses', label: 'My Expenses', icon: CreditCard },
     { to: '/team', label: 'Team', icon: Users },
     { to: '/settings', label: 'Settings', icon: Settings },
-    { to: '/profile', label: 'Profile', icon: User }, // Profile link add kiya
+    { to: '/profile', label: 'Profile', icon: User },
   ];
 
   const links = isAdmin() ? adminLinks : memberLinks;
@@ -49,6 +51,12 @@ const Sidebar: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
 
   const handleSettingsClick = () => {
     navigate('/settings');
+    setIsProfileOpen(false);
+    onClose?.();
+  };
+
+  const handleAdminClick = () => {
+    navigate('/admin');
     setIsProfileOpen(false);
     onClose?.();
   };
@@ -142,6 +150,18 @@ const Sidebar: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                 <User className="w-4 h-4" />
                 My Profile
               </button>
+              
+              {/* Admin Link - Only show if user is admin */}
+              {isAdmin() && (
+                <button 
+                  onClick={handleAdminClick}
+                  className="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50 transition-colors flex items-center gap-2"
+                >
+                  <Shield className="w-4 h-4" />
+                  Admin Panel
+                </button>
+              )}
+              
               <button 
                 onClick={handleSettingsClick}
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
@@ -149,7 +169,9 @@ const Sidebar: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                 <Settings className="w-4 h-4" />
                 Account Settings
               </button>
+              
               <div className="border-t border-gray-100 my-1"></div>
+              
               <button 
                 onClick={handleLogout}
                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition-colors flex items-center gap-2"

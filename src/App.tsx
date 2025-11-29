@@ -10,12 +10,13 @@ import Reports from './pages/Reports/Reports';
 import Cards from './pages/Cards/Cards';
 import Settings from './pages/Settings/Settings';
 import ProfilePage from './pages/Profile/ProfilePage'; // Add this import
+import AdminDashboard from './pages/Admin/AdminDashboard';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter> 
         <Routes>
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/signup" element={<Signup />} />
@@ -32,8 +33,8 @@ const App: React.FC = () => {
           <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          {/* Add Profile Page Route */}
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
