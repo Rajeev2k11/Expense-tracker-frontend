@@ -63,7 +63,7 @@ const Cards: React.FC = () => {
           {cards.map((card) => (
             <div key={card.id} className="relative group">
               {/* Credit Card */}
-              <div className={`bg-gradient-to-r ${card.gradient} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}>
+              <div className={`bg-linear-to-r ${card.gradient} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}>
                 {/* Card Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-2">
