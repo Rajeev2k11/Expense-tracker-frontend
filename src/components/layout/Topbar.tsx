@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Search, Bell, Menu, User, Settings, LogOut } from 'lucide-react';
+import { Search, Bell, Menu, User, Settings, LogOut, Key } from 'lucide-react';
 
 const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
   const { user, logout } = useAuth();
@@ -19,6 +19,11 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
 
   const handleSettingsClick = () => {
     navigate('/settings');
+    setIsDropdownOpen(false);
+  };
+
+  const handleSetPasswordClick = () => {
+    navigate('/set-password');
     setIsDropdownOpen(false);
   };
 
@@ -54,6 +59,15 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
+          {/* Set Password Testing Button */}
+          <button 
+            onClick={handleSetPasswordClick}
+            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            title="Test Set Password Page"
+          >
+            <Key className="w-5 h-5" />
+          </button>
+
           {/* Notifications */}
           <button className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors relative">
             <Bell className="w-5 h-5" />
@@ -101,6 +115,15 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
                   >
                     <Settings className="w-4 h-4" />
                     Account Settings
+                  </button>
+
+                  {/* Set Password Option in Dropdown */}
+                  <button 
+                    onClick={handleSetPasswordClick}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  >
+                    <Key className="w-4 h-4" />
+                    Set Password
                   </button>
                   
                   <div className="border-t border-gray-100 my-1"></div>
