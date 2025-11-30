@@ -11,6 +11,7 @@ const SetPassword: React.FC = () => {
     hasNumber: false,
     hasSpecialChar: false,
   });
+  const [showRequirements, setShowRequirements] = useState(false);
 
   const navigate = useNavigate();
   const specialCharacters = '@#*%_()$';
@@ -30,6 +31,12 @@ const SetPassword: React.FC = () => {
   const handleNewPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
     setNewPassword(password);
+    
+    // Show requirements only when user starts typing
+    if (password.length > 0 && !showRequirements) {
+      setShowRequirements(true);
+    }
+    
     validatePassword(password);
   };
 
@@ -88,56 +95,58 @@ const SetPassword: React.FC = () => {
             />
           </div>
 
-          {/* Password Strength Indicator */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className={`text-sm font-medium ${getStrengthColor()}`}>
-                {getStrengthText()}
-              </span>
-              <span className="text-xs text-gray-500">
-                {Object.values(passwordChecks).filter(Boolean).length}/5 requirements
-              </span>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  getStrengthText() === 'Weak' ? 'bg-red-500 w-1/5' :
-                  getStrengthText() === 'Fair' ? 'bg-orange-500 w-2/5' :
-                  getStrengthText() === 'Good' ? 'bg-blue-500 w-3/4' :
-                  'bg-green-500 w-full'
-                }`}
-              />
-            </div>
+          {/* Password Strength Indicator - Only show when user starts typing */}
+          {showRequirements && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-sm font-medium ${getStrengthColor()}`}>
+                  {getStrengthText()}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {Object.values(passwordChecks).filter(Boolean).length}/5 requirements
+                </span>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    getStrengthText() === 'Weak' ? 'bg-red-500 w-1/5' :
+                    getStrengthText() === 'Fair' ? 'bg-orange-500 w-2/5' :
+                    getStrengthText() === 'Good' ? 'bg-blue-500 w-3/4' :
+                    'bg-green-500 w-full'
+                  }`}
+                />
+              </div>
 
-            {/* Password Requirements */}
-            <div className="mt-4 space-y-2">
-              <p className="text-sm font-medium text-gray-700">Password must include:</p>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li className={`flex items-center ${passwordChecks.minLength ? 'text-green-500' : 'text-gray-400'}`}>
-                  <span className="mr-2">{passwordChecks.minLength ? '✓' : '•'}</span>
-                  At least 6 characters ({newPassword.length}/6)
-                </li>
-                <li className={`flex items-center ${passwordChecks.hasLetter ? 'text-green-500' : 'text-gray-400'}`}>
-                  <span className="mr-2">{passwordChecks.hasLetter ? '✓' : '•'}</span>
-                  At least one letter (a-z, A-Z)
-                </li>
-                <li className={`flex items-center ${passwordChecks.hasUppercase ? 'text-green-500' : 'text-gray-400'}`}>
-                  <span className="mr-2">{passwordChecks.hasUppercase ? '✓' : '•'}</span>
-                  At least one uppercase letter (A-Z)
-                </li>
-                <li className={`flex items-center ${passwordChecks.hasNumber ? 'text-green-500' : 'text-gray-400'}`}>
-                  <span className="mr-2">{passwordChecks.hasNumber ? '✓' : '•'}</span>
-                  At least one number (0-9)
-                </li>
-                <li className={`flex items-center ${passwordChecks.hasSpecialChar ? 'text-green-500' : 'text-gray-400'}`}>
-                  <span className="mr-2">{passwordChecks.hasSpecialChar ? '✓' : '•'}</span>
-                  At least one special character (@#*%_()$)
-                </li>
-              </ul>
+              {/* Password Requirements */}
+              <div className="mt-4 space-y-2">
+                <p className="text-sm font-medium text-gray-700">Password must include:</p>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li className={`flex items-center ${passwordChecks.minLength ? 'text-green-500' : 'text-gray-400'}`}>
+                    <span className="mr-2">{passwordChecks.minLength ? '✓' : '•'}</span>
+                    At least 6 characters ({newPassword.length}/6)
+                  </li>
+                  <li className={`flex items-center ${passwordChecks.hasLetter ? 'text-green-500' : 'text-gray-400'}`}>
+                    <span className="mr-2">{passwordChecks.hasLetter ? '✓' : '•'}</span>
+                    At least one letter (a-z, A-Z)
+                  </li>
+                  <li className={`flex items-center ${passwordChecks.hasUppercase ? 'text-green-500' : 'text-gray-400'}`}>
+                    <span className="mr-2">{passwordChecks.hasUppercase ? '✓' : '•'}</span>
+                    At least one uppercase letter (A-Z)
+                  </li>
+                  <li className={`flex items-center ${passwordChecks.hasNumber ? 'text-green-500' : 'text-gray-400'}`}>
+                    <span className="mr-2">{passwordChecks.hasNumber ? '✓' : '•'}</span>
+                    At least one number (0-9)
+                  </li>
+                  <li className={`flex items-center ${passwordChecks.hasSpecialChar ? 'text-green-500' : 'text-gray-400'}`}>
+                    <span className="mr-2">{passwordChecks.hasSpecialChar ? '✓' : '•'}</span>
+                    At least one special character (@#*%_()$)
+                  </li>
+                </ul>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Confirm Password Section */}
           <div className="mb-6">

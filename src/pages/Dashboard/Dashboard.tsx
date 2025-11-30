@@ -100,9 +100,10 @@ const DashboardPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="lg:col-span-2 p-6">
+      {/* Charts Section - Updated Layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+        {/* Line Chart - Takes 2 columns on xl screens */}
+        <Card className="xl:col-span-2 p-6 min-h-[500px]">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Spending Overview</h3>
             <select className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-1 focus:ring-gray-400">
@@ -116,7 +117,32 @@ const DashboardPage: React.FC = () => {
           </div>
         </Card>
 
-        <Card className="p-6">
+        {/* Pie Chart - Takes 1 column on xl screens */}
+        <Card className="p-6 min-h-[500px]">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Expenses by Category</h3>
+          <div className="h-80">
+            <CategoryDonut data={categories} />
+          </div>
+        </Card>
+      </div>
+
+      {/* Alternative Layout for smaller screens - Stack charts vertically */}
+      <div className="grid grid-cols-1 gap-6 mb-8 lg:hidden">
+        <Card className="p-6 min-h-[500px]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Spending Overview</h3>
+            <select className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <option>Last 7 days</option>
+              <option>Last 30 days</option>
+              <option>Last 90 days</option>
+            </select>
+          </div>
+          <div className="h-80">
+            <SpendingLine data={spending} />
+          </div>
+        </Card>
+
+        <Card className="p-6 min-h-[500px]">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Expenses by Category</h3>
           <div className="h-80">
             <CategoryDonut data={categories} />

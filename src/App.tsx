@@ -14,6 +14,7 @@ import SetPassword from './pages/SetupPassword/SetPassword';
 import MFASetup from './pages/MFA/MFASetup.tsx';
 import AuthenticatorSetup from './pages/MFA/AuthenticatorSetup.tsx';
 import VerifyMFA from './pages/MFA/VerifyMFA.tsx';
+import MFASuccess from './pages/MFA/MFASuccess.tsx';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -37,6 +38,7 @@ const App: React.FC = () => {
           <Route path="/set-password" element={<ProtectedRoute><SetPassword /></ProtectedRoute>} />
           <Route path="/mfa/setup" element={<ProtectedRoute><MFASetup /></ProtectedRoute>} />
           <Route path="/mfa/authenticator-setup" element={<ProtectedRoute><AuthenticatorSetup /></ProtectedRoute>} />
+          <Route path="/mfa/success" element={<ProtectedRoute><MFASuccess /></ProtectedRoute>} />
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
