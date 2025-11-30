@@ -9,18 +9,21 @@ import Team from './pages/Team/Team';
 import Reports from './pages/Reports/Reports';
 import Cards from './pages/Cards/Cards';
 import Settings from './pages/Settings/Settings';
+
 import ProfilePage from './pages/Profile/ProfilePage';
 import SetPassword from './pages/SetupPassword/SetPassword';
 import MFASetup from './pages/MFA/MFASetup.tsx';
 import AuthenticatorSetup from './pages/MFA/AuthenticatorSetup.tsx';
 import VerifyMFA from './pages/MFA/VerifyMFA.tsx';
 import MFASuccess from './pages/MFA/MFASuccess.tsx';
+import AdminDashboard from './pages/Admin/AdminDashboard';
+
 import ProtectedRoute from './components/layout/ProtectedRoute';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter> 
         <Routes>
           {/* Public Routes */}
           <Route path="/auth/login" element={<Login />} />
@@ -40,6 +43,7 @@ const App: React.FC = () => {
           <Route path="/mfa/authenticator-setup" element={<ProtectedRoute><AuthenticatorSetup /></ProtectedRoute>} />
           <Route path="/mfa/success" element={<ProtectedRoute><MFASuccess /></ProtectedRoute>} />
           
+          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
