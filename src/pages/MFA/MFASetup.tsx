@@ -6,12 +6,7 @@ const MFASetup: React.FC = () => {
   const navigate = useNavigate();
   const [selectedMethod, setSelectedMethod] = useState<'authenticator' | 'passkey'>('authenticator');
 
-  const handleContinue = () => {
-    if (selectedMethod === 'authenticator') {
-      navigate('/mfa/authenticator-setup');
-    }
-    // Passkey implementation can be added later
-  };
+  // Passkey flow is handled in a separate page (`/mfa/passkey`).
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -104,14 +99,23 @@ const MFASetup: React.FC = () => {
                 Use biometric authentication or a security key for quick and secure access
               </p>
             </div>
+
+            {/* Passkey methods moved to a dedicated page */}
           </div>
 
           {/* Continue Button */}
           <button
-            onClick={handleContinue}
+            onClick={() => {
+              if (selectedMethod === 'authenticator') {
+                navigate('/mfa/authenticator-setup');
+              } else {
+                // Navigate to dedicated passkey setup page
+                navigate('/mfa/passkey');
+              }
+            }}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors shadow-sm"
           >
-            Continue
+            {selectedMethod === 'passkey' ? 'Continue to Passkey Setup' : 'Continue'}
           </button>
 
           {/* Additional Info */}
