@@ -6,6 +6,9 @@ import CategoryDonut from '../../components/charts/CategoryDonut';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import type { DashboardStats } from '../../types';
+import { useSelector } from 'react-redux';
+import { fetchUsers } from '@/redux/slices/authSlice';
+import { useAppDispatch } from '@/redux';
 
 const DashboardPage: React.FC = () => {
   const { isAdmin, user } = useAuth();
@@ -14,27 +17,13 @@ const DashboardPage: React.FC = () => {
   const [categories, setCategories] = useState<{ name: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const {username} = useSelector((state: any) => state.auth);
+
+const dispatch = useAppDispatch();
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [statsRes, spendingRes, categoriesRes] = await Promise.all([
-          api.get('/dashboard/stats'),
-          api.get('/dashboard/spending'),
-          api.get('/dashboard/categories')
-        ]);
-
-        setStats(statsRes.data);
-        setSpending(Array.isArray(spendingRes.data) ? spendingRes.data : []);
-        setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
-      } catch (error) {
-        console.warn('Dashboard data fetch failed', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    console.log('Username from Redux store:', username);
+   dispatch(fetchUsers());
   }, []);
 
   if (loading) {

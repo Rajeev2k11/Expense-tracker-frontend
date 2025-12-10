@@ -2,17 +2,15 @@ import axios from 'axios';
 import { dashboard, transactions, expenses as mockExpenses, teams } from '../mocks/data';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/proxy',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token && config.headers) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// api.interceptors.request.use((config) => {
+  
+// });
 
 // Response interceptor: if server returns HTML (index.html) because MSW didn't intercept,
 // return local mock data for known endpoints so the UI doesn't crash.
