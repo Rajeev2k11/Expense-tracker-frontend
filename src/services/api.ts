@@ -46,3 +46,15 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// Helper to call the real backend register endpoint. If `VITE_API_BASE_URL` is set
+// (Vite env var) the call will go to that host; otherwise it will fall back to
+// the local `/api` proxy (useful for MSW/mocks during development).
+export async function registerUser(payload: unknown) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  // Build URL like '<base>/api/v1/users/register' when base is set,
+  // or '/api/v1/users/register' for same-origin requests when base is empty.
+  const url = trimmed ? `${trimmed}/api/v1/users/register` : '/api/v1/users/register';
+  return axios.post(url, payload);
+}

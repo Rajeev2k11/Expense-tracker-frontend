@@ -1,8 +1,9 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAppDispatch, useAuthStatus, useAuthError } from '../../redux/hooks';
+import { signup } from '../../redux/slices/authSlice';
 import type { Role } from '../../types';
 
 const roles = ['CEO','CTO','CFO','Founder','Manager','Team Leader','HR','Employee','Client','Designer','Developer','Marketing','Sales','Support'] as Role[];
@@ -17,9 +18,12 @@ const schema = z.object({
 type Form = z.infer<typeof schema>;
 
 const Signup: React.FC = () => {
-  const { signup } = useAuth();
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<Form>();
+  const status = useAuthStatus();
+  const authError = useAuthError();
+  const navigate = useNavigate();
+  const { register, handleSubmit, setError, formState: { errors } } = useForm<Form>();
 
   const onSubmit = async (data: Form) => {
     const parsed = schema.safeParse(data);
@@ -31,8 +35,14 @@ const Signup: React.FC = () => {
       });
       return;
     }
-    await signup(parsed.data as Form & { password: string });
-    navigate('/');
+    try {
+      await dispatch(signup(parsed.data as Form & { password: string })).unwrap();
+      navigate('/');
+    } catch (err: any) {
+      const msg = err?.message || 'Registration failed';
+      // Map server message to field error when possible
+      setError('email', { type: 'manual', message: msg });
+    }
   };
 
   return (
@@ -85,10 +95,10 @@ const Signup: React.FC = () => {
 
           <button 
             type="submit"
-            disabled={isSubmitting}
+            disabled={status === 'loading'}
             className="w-full bg-gray-900 hover:bg-gray-800 text-white py-2 rounded-md transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? 'Creating...' : 'Create Account'}
+            {status === 'loading' ? 'Creating...' : 'Create Account'}
           </button>
         </form>
 

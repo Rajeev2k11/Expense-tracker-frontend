@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import type { User, Role, ProfileFormData } from '../../types';
 import type { ApiError, RequestStatus } from '../types';
+import { registerUser } from '../../services/api';
 
 const USERS_KEY = 'mock_users';
 const USER_KEY = 'user';
@@ -83,44 +84,29 @@ export const signup = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const users = getStoredUsers();
-      const existingUser = users.find(
-        (u) => u.email.toLowerCase() === data.email.toLowerCase()
-      );
+      const resp = await registerUser(data);
+      const respData = resp?.data ?? resp;
 
-      if (existingUser) {
-        return rejectWithValue({
-          message: 'Email already exists',
-          code: 'EMAIL_EXISTS',
-        });
+      // Normalize user & token from common API response shapes
+      let user: User | undefined = respData?.user ?? respData?.data ?? respData;
+      let token: string | undefined = respData?.token ?? respData?.data?.token ?? user?.token;
+
+      if (!user && respData?.data) {
+        user = respData.data.user ?? respData.data;
       }
 
-      const id = crypto.randomUUID();
-      const newUser: User = {
-        id,
-        fullName: data.fullName,
-        email: data.email,
-        role: data.role,
-        token: `token-${id}`,
-        phone: '',
-        location: '',
-        department: '',
-        bio: 'Welcome to ExpensePro!',
-      };
+      if (!token && user?.token) token = user.token;
 
-      users.push(newUser);
-      setStoredUsers(users);
+      if (token) localStorage.setItem(TOKEN_KEY, token);
+      if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
 
-      localStorage.setItem(TOKEN_KEY, newUser.token);
-      localStorage.setItem(USER_KEY, JSON.stringify(newUser));
-
-      return newUser;
+      return user as User;
     } catch (error) {
-      const err = error as Error;
-      return rejectWithValue({
-        message: err.message || 'Signup failed',
-        code: 'SIGNUP_ERROR',
-      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err: any = error;
+      const message = err?.response?.data?.message || err?.message || 'Signup failed';
+      const code = err?.response?.data?.code || 'SIGNUP_ERROR';
+      return rejectWithValue({ message, code });
     }
   }
 );
