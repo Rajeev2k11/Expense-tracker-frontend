@@ -2,7 +2,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAppDispatch, useAuthStatus, useAuthError } from '../../redux/hooks';
+import { useAppDispatch, useAuthStatus } from '../../redux/hooks';
 import { signup } from '../../redux/slices/authSlice';
 import type { Role } from '../../types';
 
@@ -21,8 +21,8 @@ const Signup: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const status = useAuthStatus();
-  const authError = useAuthError();
-  const navigate = useNavigate();
+  // const authError = useAuthError();
+  
   const { register, handleSubmit, setError, formState: { errors } } = useForm<Form>();
 
   const onSubmit = async (data: Form) => {
@@ -38,6 +38,7 @@ const Signup: React.FC = () => {
     try {
       await dispatch(signup(parsed.data as Form & { password: string })).unwrap();
       navigate('/');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const msg = err?.message || 'Registration failed';
       // Map server message to field error when possible
