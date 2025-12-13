@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import type { User, Role, ProfileFormData } from '../../types';
 import type { ApiError, RequestStatus } from '../types';
-import { registerUser } from '../../services/api';
+import { registerUser, setupPassword as setupPasswordApi, selectMfaMethod as selectMfaApi, verifyMfa as verifyMfaApi, passkeyAuthOptions as passkeyOptionsApi, passkeyAuthVerify as passkeyVerifyApi, loginUser as loginUserApi } from '../../services/api';
+import { fetchUsers as fetchUsersApi, inviteUser as inviteUserApi } from '../../services/api';
 
 const USERS_KEY = 'mock_users';
 const USER_KEY = 'user';
@@ -110,6 +111,170 @@ export const signup = createAsyncThunk(
     }
   }
 );
+
+export const setupPassword = createAsyncThunk(
+  'auth/setupPassword',
+  async (
+    data: { userId?: string; token?: string; password: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const resp = await setupPasswordApi(data);
+      // Update local mock users store if present
+      const users = getStoredUsers();
+      if (data.userId) {
+        const idx = users.findIndex((u) => u.id === data.userId);
+        if (idx !== -1) {
+          (users[idx] as any).password = data.password;
+          (users[idx] as any).passwordSet = true;
+          setStoredUsers(users);
+        }
+      }
+      return resp.data;
+    } catch (error) {
+      const err = error as any;
+      return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Setup failed' });
+    }
+  }
+);
+
+export const selectMfaMethod = createAsyncThunk(
+  'auth/selectMfaMethod',
+  async (
+    data: { userId: string; method: 'authenticator' | 'passkey' },
+    { rejectWithValue }
+  ) => {
+    try {
+      const resp = await selectMfaApi(data);
+      // update local store
+      const users = getStoredUsers();
+      const idx = users.findIndex((u) => u.id === data.userId);
+      if (idx !== -1) {
+        (users[idx] as any).mfaMethod = data.method;
+        if (resp.data?.secret) (users[idx] as any).totpSecret = resp.data.secret;
+        setStoredUsers(users);
+      }
+      return resp.data;
+    } catch (error) {
+      const err = error as any;
+      return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Select MFA failed' });
+    }
+  }
+);
+
+export const verifyMfa = createAsyncThunk(
+  'auth/verifyMfa',
+  async (
+    data: { userId: string; method: string; code?: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const resp = await verifyMfaApi(data);
+      if (resp.data?.verified) {
+        const users = getStoredUsers();
+        const idx = users.findIndex((u) => u.id === data.userId);
+        if (idx !== -1) {
+          (users[idx] as any).mfaVerified = true;
+          setStoredUsers(users);
+        }
+      }
+      return resp.data;
+    } catch (error) {
+      const err = error as any;
+      return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Verify MFA failed' });
+    }
+  }
+);
+
+export const passkeyAuthOptions = createAsyncThunk(
+  'auth/passkeyOptions',
+  async (
+    data: { userId: string; action: 'register' | 'authenticate' },
+    { rejectWithValue }
+  ) => {
+    try {
+      const resp = await passkeyOptionsApi(data);
+      return resp.data;
+    } catch (error) {
+      const err = error as any;
+      return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Passkey options failed' });
+    }
+  }
+);
+
+export const passkeyAuthVerify = createAsyncThunk(
+  'auth/passkeyVerify',
+  async (
+    data: { userId: string; action: string; credential: unknown },
+    { rejectWithValue }
+  ) => {
+    try {
+      const resp = await passkeyVerifyApi(data);
+      if (resp.data?.verified) {
+        const users = getStoredUsers();
+        const idx = users.findIndex((u) => u.id === data.userId);
+        if (idx !== -1 && data.action === 'register') {
+          (users[idx] as any).mfaVerified = true;
+          (users[idx] as any).passkeys = (users[idx] as any).passkeys || [];
+          // attempt to store credential id if present
+          try {
+            const cred: any = data.credential as any;
+            if (cred?.id) (users[idx] as any).passkeys.push({ id: cred.id });
+          } catch {}
+          setStoredUsers(users);
+        }
+      }
+      return resp.data;
+    } catch (error) {
+      const err = error as any;
+      return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Passkey verify failed' });
+    }
+  }
+);
+
+export const loginWithApi = createAsyncThunk(
+  'auth/loginWithApi',
+  async (
+    data: { email: string; password?: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const resp = await loginUserApi(data);
+      const d = resp.data;
+      if (d.mfaRequired) {
+        return d; // allow caller to handle MFA
+      }
+      const user = d.user;
+      const token = d.token;
+      if (token) localStorage.setItem('token', token);
+      if (user) localStorage.setItem('user', JSON.stringify(user));
+      return { user, token };
+    } catch (error) {
+      const err = error as any;
+      return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Login failed' });
+    }
+  }
+);
+
+export const fetchUsersList = createAsyncThunk('auth/fetchUsers', async (_, { rejectWithValue }) => {
+  try {
+    const resp = await fetchUsersApi();
+    return resp.data;
+  } catch (error) {
+    const err = error as any;
+    return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Fetch users failed' });
+  }
+});
+
+export const inviteUser = createAsyncThunk('auth/inviteUser', async (payload: { email: string; role?: string }, { rejectWithValue }) => {
+  try {
+    const resp = await inviteUserApi(payload);
+    return resp.data;
+  } catch (error) {
+    const err = error as any;
+    return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Invite failed' });
+  }
+});
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
@@ -239,6 +404,55 @@ export const authSlice = createSlice({
         state.user = action.payload;
       })
       .addCase(updateProfile.rejected, (state, action) => {
+        state.status = 'error';
+        state.error = action.payload as ApiError;
+      });
+
+    builder
+      .addCase(loginWithApi.pending, (state) => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase(loginWithApi.fulfilled, (state, action) => {
+        state.status = 'success';
+        const payload: any = action.payload;
+        if (payload?.user) {
+          state.user = payload.user;
+          state.token = payload.token ?? payload.user?.token;
+        }
+      })
+      .addCase(loginWithApi.rejected, (state, action) => {
+        state.status = 'error';
+        state.error = action.payload as ApiError;
+      })
+      .addCase(verifyMfa.fulfilled, (state, _action) => {
+        state.status = 'success';
+      })
+      .addCase(verifyMfa.rejected, (state, action) => {
+        state.status = 'error';
+        state.error = action.payload as ApiError;
+      });
+
+    builder
+      .addCase(fetchUsersList.pending, (state) => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase(fetchUsersList.fulfilled, (state) => {
+        state.status = 'success';
+      })
+      .addCase(fetchUsersList.rejected, (state, action) => {
+        state.status = 'error';
+        state.error = action.payload as ApiError;
+      })
+      .addCase(inviteUser.pending, (state) => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase(inviteUser.fulfilled, (state) => {
+        state.status = 'success';
+      })
+      .addCase(inviteUser.rejected, (state, action) => {
         state.status = 'error';
         state.error = action.payload as ApiError;
       });

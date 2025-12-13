@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppDispatch } from '../../redux/hooks';
+import { setupPassword } from '../../redux/slices/authSlice';
 
 const SetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
@@ -14,6 +16,7 @@ const SetPassword: React.FC = () => {
   const [showRequirements, setShowRequirements] = useState(false);
 
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const specialCharacters = '@#*%_()$';
 
   const validatePassword = (password: string) => {
@@ -46,10 +49,20 @@ const SetPassword: React.FC = () => {
 
   const handleSetupPassword = () => {
     if (isSetupEnabled) {
-      // Password setup successful, navigate to MFA setup
-      navigate('/mfa/setup');
+      // Call API to set password then navigate to MFA setup
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      if (user?.id) {
+        dispatch(setupPassword({ userId: user.id, password: newPassword }))
+          .unwrap()
+          .then(() => navigate('/mfa/setup'))
+          .catch((e) => console.error('Setup password failed', e));
+      } else {
+        navigate('/mfa/setup');
+      }
     }
   };
+
 
   const isPasswordStrong = Object.values(passwordChecks).every(Boolean);
   const passwordsMatch = newPassword === confirmPassword && confirmPassword !== '';

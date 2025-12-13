@@ -37,7 +37,8 @@ const Signup: React.FC = () => {
     }
     try {
       await dispatch(signup(parsed.data as Form & { password: string })).unwrap();
-      navigate('/');
+      // After registration, require password setup
+      navigate('/set-password');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const msg = err?.message || 'Registration failed';

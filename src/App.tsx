@@ -16,6 +16,8 @@ import MFASetup from './pages/MFA/MFASetup.tsx';
 import AuthenticatorSetup from './pages/MFA/AuthenticatorSetup.tsx';
 import VerifyMFA from './pages/MFA/VerifyMFA.tsx';
 import MFASuccess from './pages/MFA/MFASuccess.tsx';
+import PasskeySetup from './pages/MFA/PasskeySetup.tsx';
+import PasskeyAuth from './pages/MFA/PasskeyAuth';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 
 import ProtectedRoute from './components/layout/ProtectedRoute';
@@ -41,6 +43,8 @@ const App: React.FC = () => {
           <Route path="/set-password" element={<ProtectedRoute><SetPassword /></ProtectedRoute>} />
           <Route path="/mfa/setup" element={<ProtectedRoute><MFASetup /></ProtectedRoute>} />
           <Route path="/mfa/authenticator-setup" element={<ProtectedRoute><AuthenticatorSetup /></ProtectedRoute>} />
+          <Route path="/mfa/passkey-setup" element={<ProtectedRoute><PasskeySetup /></ProtectedRoute>} />
+          <Route path="/mfa/passkey-login" element={<PasskeyAuth />} />
           <Route path="/mfa/success" element={<ProtectedRoute><MFASuccess /></ProtectedRoute>} />
           
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

@@ -58,3 +58,67 @@ export async function registerUser(payload: unknown) {
   const url = trimmed ? `${trimmed}/api/v1/users/register` : '/api/v1/users/register';
   return axios.post(url, payload);
 }
+
+// Authentication & MFA helpers
+export async function setupPassword(payload: { userId?: string; token?: string; password: string }) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users/setup-password` : '/api/v1/users/setup-password';
+  return axios.post(url, payload);
+}
+
+export async function selectMfaMethod(payload: { userId: string; method: 'authenticator' | 'passkey' }) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users/select-mfa-method` : '/api/v1/users/select-mfa-method';
+  return axios.post(url, payload);
+}
+
+export async function verifyMfa(payload: { userId: string; method: string; code?: string }) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users/verify-mfa` : '/api/v1/users/verify-mfa';
+  return axios.post(url, payload);
+}
+
+export async function passkeyAuthOptions(payload: { userId: string; action: 'register' | 'authenticate' }) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users/passkey-auth-options` : '/api/v1/users/passkey-auth-options';
+  return axios.post(url, payload);
+}
+
+export async function passkeyAuthVerify(payload: { userId: string; action: string; credential: unknown }) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users/passkey-auth-verify` : '/api/v1/users/passkey-auth-verify';
+  return axios.post(url, payload);
+}
+
+export async function loginUser(payload: { email: string; password?: string }) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users/login` : '/api/v1/users/login';
+  return axios.post(url, payload);
+}
+
+export async function fetchUsers() {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users` : '/api/v1/users';
+  return axios.get(url);
+}
+
+export async function getUser(userId: string) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users/${userId}` : `/api/v1/users/${userId}`;
+  return axios.get(url);
+}
+
+export async function inviteUser(payload: { email: string; role?: string }) {
+  const base = (import.meta.env.VITE_API_BASE_URL as string) || '';
+  const trimmed = base.replace(/\/+$/, '');
+  const url = trimmed ? `${trimmed}/api/v1/users/invite` : '/api/v1/users/invite';
+  return axios.post(url, payload);
+}

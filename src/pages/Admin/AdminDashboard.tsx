@@ -1,5 +1,7 @@
 // AdminDashboard.tsx
 import React, { useState } from 'react';
+import { useAppDispatch } from '../../redux/hooks';
+import { fetchUsersList, inviteUser } from '../../redux/slices/authSlice';
 import Layout from '../../components/layout/Layout';
 import { 
   Users, 
@@ -52,44 +54,7 @@ interface Invite {
 
 const AdminDashboard: React.FC = () => {
   // State for employees
-  const [employees, setEmployees] = useState<Employee[]>([
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@company.com',
-      role: 'Senior Developer',
-      team: 'Engineering',
-      status: 'active',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane@company.com',
-      role: 'UI/UX Designer',
-      team: 'Design',
-      status: 'active',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
-    },
-    {
-      id: '3',
-      name: 'Robert Johnson',
-      email: 'robert@company.com',
-      role: 'Project Manager',
-      team: 'Engineering',
-      status: 'active',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
-    },
-    {
-      id: '4',
-      name: 'Sarah Wilson',
-      email: 'sarah@company.com',
-      role: 'Marketing Specialist',
-      team: 'Marketing',
-      status: 'active',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face'
-    }
-  ]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   // State for teams
   const [teams, setTeams] = useState<Team[]>([
@@ -162,6 +127,24 @@ const AdminDashboard: React.FC = () => {
     team: ''
   });
 
+  const dispatch = useAppDispatch();
+
+  React.useEffect(() => {
+    // Fetch users from mock API
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp: any = await dispatch(fetchUsersList()).unwrap();
+        if (cancelled) return;
+        const list = (resp || []).map((u: any) => ({ id: u.id, name: u.fullName, email: u.email, role: u.role, team: '', status: 'active', avatar: u.avatar || '' }));
+        setEmployees(list);
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [dispatch]);
+
   const [teamForm, setTeamForm] = useState({
     name: '',
     description: '',
@@ -198,23 +181,28 @@ const AdminDashboard: React.FC = () => {
       alert('Please fill all fields');
       return;
     }
-    
-    const newInvite: Invite = {
-      id: Date.now().toString(),
-      email: inviteForm.email,
-      role: inviteForm.role,
-      team: inviteForm.team,
-      status: 'pending',
-      sentAt: new Date().toISOString().split('T')[0]
-    };
-    
-    setInvites([...invites, newInvite]);
-    setInviteForm({ email: '', role: '', team: '' });
-    setExpandedSection(null);
-    
-    // Show success message
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    (async () => {
+      try {
+        const resp: any = await dispatch(inviteUser({ email: inviteForm.email, role: inviteForm.role })).unwrap();
+        const user = resp?.user;
+        const newInvite: Invite = {
+          id: user?.id || Date.now().toString(),
+          email: inviteForm.email,
+          role: inviteForm.role,
+          team: inviteForm.team,
+          status: 'pending',
+          sentAt: new Date().toISOString().split('T')[0]
+        };
+        setInvites([...invites, newInvite]);
+        setInviteForm({ email: '', role: '', team: '' });
+        setExpandedSection(null);
+        // Show success message
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      } catch (e) {
+        alert('Invite failed');
+      }
+    })();
   };
 
   // Create Team Handler

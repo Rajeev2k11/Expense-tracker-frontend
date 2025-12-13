@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
+import { useAppDispatch } from '../../redux/hooks';
+import { verifyMfa } from '../../redux/slices/authSlice';
 
 const VerifyMFA: React.FC = () => {
   const navigate = useNavigate();
@@ -12,13 +14,19 @@ const VerifyMFA: React.FC = () => {
   };
 
   const handleVerify = () => {
-    // Here you would typically verify the code with your backend
-    console.log('Verifying code:', code);
-    
-    // For demo purposes, navigate to dashboard after "verification"
-    // In real app, you'd have proper verification logic
+    const raw = localStorage.getItem('user');
+    const user = raw ? JSON.parse(raw) : null;
+    if (user?.id) {
+      dispatch(verifyMfa({ userId: user.id, method: 'authenticator', code }))
+        .unwrap()
+        .then(() => navigate('/'))
+        .catch((e) => console.error('Verify failed', e));
+      return;
+    }
     navigate('/');
   };
+
+  const dispatch = useAppDispatch();
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">

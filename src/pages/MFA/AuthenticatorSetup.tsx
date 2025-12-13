@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, Copy, Check, Smartphone, Scan } from 'lucide-react';
+import { useAppDispatch } from '../../redux/hooks';
+import { verifyMfa } from '../../redux/slices/authSlice';
 
 const AuthenticatorSetup: React.FC = () => {
   const navigate = useNavigate();
@@ -17,11 +19,20 @@ const AuthenticatorSetup: React.FC = () => {
 
   const handleVerify = () => {
     if (verificationCode.length === 6) {
-      // Here you would typically verify the code with your backend
-      console.log('Verifying code:', verificationCode);
-      navigate('/mfa/success');
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      if (user?.id) {
+        dispatch(verifyMfa({ userId: user.id, method: 'authenticator', code: verificationCode }))
+          .unwrap()
+          .then(() => navigate('/mfa/success'))
+          .catch((e) => console.error('Verify MFA failed', e));
+      } else {
+        navigate('/mfa/success');
+      }
     }
   };
+
+  const dispatch = useAppDispatch();
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);

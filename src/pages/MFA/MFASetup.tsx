@@ -1,16 +1,33 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, Smartphone, Key } from 'lucide-react';
+import { useAppDispatch } from '../../redux/hooks';
+import { selectMfaMethod } from '../../redux/slices/authSlice';
 
 const MFASetup: React.FC = () => {
   const navigate = useNavigate();
   const [selectedMethod, setSelectedMethod] = useState<'authenticator' | 'passkey'>('authenticator');
 
+  const dispatch = useAppDispatch();
+
   const handleContinue = () => {
     if (selectedMethod === 'authenticator') {
       navigate('/mfa/authenticator-setup');
+      return;
     }
-    // Passkey implementation can be added later
+
+    // Passkey selected — tell API and then navigate
+    const raw = localStorage.getItem('user');
+    const user = raw ? JSON.parse(raw) : null;
+    if (user?.id) {
+      dispatch(selectMfaMethod({ userId: user.id, method: 'passkey' }))
+        .unwrap()
+        .catch(() => {})
+        .finally(() => navigate('/mfa/passkey-setup'));
+      return;
+    }
+
+    navigate('/mfa/passkey-setup');
   };
 
   return (

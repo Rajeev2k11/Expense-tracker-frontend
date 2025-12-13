@@ -8,6 +8,13 @@ const users = [
     role: 'CEO',
     token: 'token-alice',
     avatar: '',
+    // MFA and auth fields for demo
+    password: 'Password@1',
+    passwordSet: true,
+    mfaMethod: null,
+    mfaVerified: false,
+    passkeys: [],
+    invited: false,
   },
   {
     id: uid(),
@@ -16,6 +23,12 @@ const users = [
     role: 'Developer',
     token: 'token-bob',
     avatar: '',
+    password: 'Password@1',
+    passwordSet: true,
+    mfaMethod: null,
+    mfaVerified: false,
+    passkeys: [],
+    invited: false,
   },
   {
     id: uid(),
@@ -24,6 +37,12 @@ const users = [
     role: 'Marketing',
     token: 'token-clara',
     avatar: '',
+    password: 'Password@1',
+    passwordSet: true,
+    mfaMethod: null,
+    mfaVerified: false,
+    passkeys: [],
+    invited: false,
   },
 ];
 

@@ -22,6 +22,14 @@ export interface User {
   role: Role;
   token: string;
   avatar?: string;
+  // Optional fields added for MFA/demo flows
+  password?: string;
+  passwordSet?: boolean;
+  mfaMethod?: 'authenticator' | 'passkey' | null;
+  mfaVerified?: boolean;
+  passkeys?: Array<{ id: string; attestation?: unknown }>;
+  totpSecret?: string;
+  invited?: boolean;
   phone?: string;
   location?: string;
   department?: string;

@@ -16,6 +16,40 @@ npm install
 npm run dev
 ```
 
+Passkey & MFA flows (local dev)
+--------------------------------
+This project includes MSW mock endpoints for a production-like MFA/passkey flow. Useful endpoints (mocked) are:
+
+- POST /api/v1/users/register
+- POST /api/v1/users/setup-password
+- POST /api/v1/users/select-mfa-method
+- POST /api/v1/users/verify-mfa
+- POST /api/v1/users/passkey-auth-options
+- POST /api/v1/users/passkey-auth-verify
+- POST /api/v1/users/login
+- GET  /api/v1/users
+- GET  /api/v1/users/{id}
+- POST /api/v1/users/invite
+
+How to test locally:
+
+1. Start dev server
+
+```powershell
+npm install
+npm run dev
+```
+
+Note: If you change `.env` (for example to set `VITE_API_BASE_URL`), restart the dev server so Vite picks up the new environment variables.
+
+2. Signup a user and you will be redirected to `Set Password` to create a password.
+3. After setting password you will be taken to `MFA Setup` where you can choose `Authenticator App` (enter code `123456` to verify) or `Passkey` which will use the browser's WebAuthn prompt.
+4. Login: if the user has MFA enabled the login response will indicate `mfaRequired` — the UI redirects you to the right flow (code or passkey auth).
+
+Notes:
+- The MSW mocks are a development convenience and purposely simplify cryptographic verification. For production you must perform server-side attestation/assertion validation (e.g., using `@simplewebauthn/server`) and store credential public keys and counters.
+- The passkey flows use `@simplewebauthn/browser` to trigger the browser prompt. Make sure you run the app via `https` or `localhost` as required by WebAuthn.
+
 Notes & next steps
 - MSW starts automatically in dev mode. Ensure `import.meta.env.DEV` is true for local run.
 - I still need to finish: expense edit modal, filters & sorting, recent transactions list, team activity feed, mobile sidebar behavior, polish styles to exactly match the screenshot.

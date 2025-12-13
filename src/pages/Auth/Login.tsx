@@ -1,6 +1,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { useAuth } from '../../context/AuthContext';
+import { useAppDispatch } from '../../redux/hooks';
+import { loginWithApi } from '../../redux/slices/authSlice';
 import { useNavigate, Link } from 'react-router-dom';
 import type { Role } from '../../types';
 
@@ -13,17 +14,30 @@ type F = {
 };
 
 const Login: React.FC = () => {
-  const { login } = useAuth();
   const navigate = useNavigate();
+  
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<F>();
+  const dispatch = useAppDispatch();
 
   const onSubmit = async (d: F) => {
     if (!d.email) return setError('email', { type: 'required', message: 'Email required' });
     if (!d.password) return setError('password', { type: 'required', message: 'Password required' });
     if (!d.role) return setError('role', { type: 'required', message: 'Role required' });
-    
-    await login(d.email, d.password);
-    navigate('/');
+
+    try {
+      const resp: any = await dispatch(loginWithApi({ email: d.email, password: d.password })).unwrap();
+      if (resp?.mfaRequired) {
+        if (resp.method === 'passkey') {
+          navigate('/mfa/passkey-login', { state: { email: d.email } });
+        } else {
+          navigate('/mfa/verify-code', { state: { email: d.email } });
+        }
+        return;
+      }
+      navigate('/');
+    } catch (err: any) {
+      setError('email', { type: 'manual', message: err?.message || 'Login failed' });
+    }
   };
 
   return (
