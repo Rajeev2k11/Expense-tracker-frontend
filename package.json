@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.0",
+    "@simplewebauthn/browser": "^11.0.0",
     "@tailwindcss/vite": "^4.1.17",
     "axios": "^1.4.0",
     "classnames": "^2.3.2",
@@ -27,6 +28,11 @@
     "tailwindcss": "^4.1.17",
     "uuid": "^9.0.1",
     "zod": "^4.1.13"
+  },
+  "dependenciesMeta": {
+    "@simplewebauthn/browser": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
