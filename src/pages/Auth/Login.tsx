@@ -3,14 +3,10 @@ import { useForm } from 'react-hook-form';
 import { useAppDispatch } from '../../redux/hooks';
 import { loginWithApi } from '../../redux/slices/authSlice';
 import { useNavigate, Link } from 'react-router-dom';
-import type { Role } from '../../types';
-
-const roles = ['CEO','CTO','CFO','Founder','Manager','Team Leader','HR','Employee','Client','Designer','Developer','Marketing','Sales','Support'] as Role[];
 
 type F = { 
   email: string; 
   password: string;
-  role: string;
 };
 
 const Login: React.FC = () => {
@@ -22,7 +18,6 @@ const Login: React.FC = () => {
   const onSubmit = async (d: F) => {
     if (!d.email) return setError('email', { type: 'required', message: 'Email required' });
     if (!d.password) return setError('password', { type: 'required', message: 'Password required' });
-    if (!d.role) return setError('role', { type: 'required', message: 'Role required' });
 
     try {
       const resp: any = await dispatch(loginWithApi({ email: d.email, password: d.password })).unwrap();
@@ -70,16 +65,7 @@ const Login: React.FC = () => {
           />
           {errors.password && <p className="text-red-500 text-xs">{errors.password.message}</p>}
 
-          <select 
-            {...register('role')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-          >
-            <option value="">Select Role</option>
-            {roles.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-          {errors.role && <p className="text-red-500 text-xs">{errors.role.message}</p>}
+          {/* role removed: backend only expects email and password for login */}
 
           <button 
             type="submit"

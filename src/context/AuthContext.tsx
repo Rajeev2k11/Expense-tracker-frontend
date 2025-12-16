@@ -61,9 +61,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (u) {
       localStorage.setItem('token', u.token);
       localStorage.setItem('user', JSON.stringify(u));
+      // Notify other parts of the app (e.g., Redux) that auth changed
+      try {
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('auth:changed'));
+      } catch {}
     } else {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      try {
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('auth:changed'));
+      } catch {}
     }
   };
 
@@ -164,8 +171,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = () => {
     if (!user) return false;
-    return ['CEO', 'CTO', 'CFO', 'Founder', 'Manager', 'Team Leader'].includes(user.role);
+    const adminRoles = ['CEO', 'CTO', 'CFO', 'Founder', 'Manager', 'Team Leader', 'Admin', 'Administrator', 'Owner'];
+    return adminRoles.map((r) => r.toLowerCase()).includes((user.role || '').toLowerCase());
   };
+
+  // Listen for auth changes triggered elsewhere (Redux thunks, other windows)
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const raw = localStorage.getItem('user');
+        if (!raw) {
+          setUser(null);
+          return;
+        }
+        const u = JSON.parse(raw) as User;
+        // Only update state if different to avoid rerenders
+        if (!user || u.id !== user.id || u.token !== user.token) {
+          setUser(u);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener('auth:changed', handler);
+    // also handle storage events (other tabs)
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('auth:changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, [user]);
 
   const isTeamMember = () => {
     if (!user) return false;

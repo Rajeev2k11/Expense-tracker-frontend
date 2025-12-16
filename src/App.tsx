@@ -40,12 +40,12 @@ const App: React.FC = () => {
           <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/set-password" element={<ProtectedRoute><SetPassword /></ProtectedRoute>} />
-          <Route path="/mfa/setup" element={<ProtectedRoute><MFASetup /></ProtectedRoute>} />
-          <Route path="/mfa/authenticator-setup" element={<ProtectedRoute><AuthenticatorSetup /></ProtectedRoute>} />
-          <Route path="/mfa/passkey-setup" element={<ProtectedRoute><PasskeySetup /></ProtectedRoute>} />
+          <Route path="/set-password" element={<SetPassword />} />
+          <Route path="/mfa/setup" element={<MFASetup />} />
+          <Route path="/mfa/authenticator-setup" element={<AuthenticatorSetup />} />
+          <Route path="/mfa/passkey-setup" element={<PasskeySetup />} />
           <Route path="/mfa/passkey-login" element={<PasskeyAuth />} />
-          <Route path="/mfa/success" element={<ProtectedRoute><MFASuccess /></ProtectedRoute>} />
+          <Route path="/mfa/success" element={<MFASuccess />} />
           
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

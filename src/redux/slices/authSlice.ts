@@ -248,6 +248,10 @@ export const loginWithApi = createAsyncThunk(
       const token = d.token;
       if (token) localStorage.setItem('token', token);
       if (user) localStorage.setItem('user', JSON.stringify(user));
+      // Notify other parts of the app (AuthContext) that auth state changed
+      try {
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('auth:changed'));
+      } catch {}
       return { user, token };
     } catch (error) {
       const err = error as any;
@@ -419,6 +423,11 @@ export const authSlice = createSlice({
         if (payload?.user) {
           state.user = payload.user;
           state.token = payload.token ?? payload.user?.token;
+          // Determine admin/team roles based on returned user role (case-insensitive)
+          const adminRoles = ['CEO', 'CTO', 'CFO', 'Founder', 'Manager', 'Team Leader', 'Admin', 'Administrator', 'Owner'];
+          const role = (payload.user?.role || '').toString();
+          state.isAdmin = adminRoles.map((r) => r.toLowerCase()).includes(role.toLowerCase());
+          state.isTeamMember = !state.isAdmin;
         }
       })
       .addCase(loginWithApi.rejected, (state, action) => {
