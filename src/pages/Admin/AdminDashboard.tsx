@@ -124,7 +124,8 @@ const AdminDashboard: React.FC = () => {
   const [inviteForm, setInviteForm] = useState({
     email: '',
     role: '',
-    team: ''
+    team: '',
+    name: ''
   });
 
   const dispatch = useAppDispatch();
@@ -170,20 +171,27 @@ const AdminDashboard: React.FC = () => {
       ...team,
       members: employees.filter(emp => emp.team === team.name)
     }));
-    setTeams(updatedTeams);
-  }, [employees, teams]);
+    // Only update teams when the members actually change to avoid infinite re-renders
+    setTeams((prev) => {
+      const prevMembers = prev.map(t => t.members.map(m => m.id).join(',')).join('|');
+      const newMembers = updatedTeams.map(t => t.members.map(m => m.id).join(',')).join('|');
+      if (prevMembers === newMembers) return prev;
+      return updatedTeams;
+    });
+  }, [employees]);
 
   // Invite Employee Handler
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!inviteForm.email || !inviteForm.role || !inviteForm.team) {
-      alert('Please fill all fields');
+    if (!inviteForm.email || !inviteForm.role || !inviteForm.team || !inviteForm.name) {
+      alert('Please fill all fields (name, email, role, team)');
       return;
     }
+
     (async () => {
       try {
-        const resp: any = await dispatch(inviteUser({ email: inviteForm.email, role: inviteForm.role })).unwrap();
+        const payload = { team: inviteForm.team, email: inviteForm.email, role: inviteForm.role, name: inviteForm.name };
+        const resp: any = await dispatch(inviteUser(payload)).unwrap();
         const user = resp?.user;
         const newInvite: Invite = {
           id: user?.id || Date.now().toString(),
@@ -194,13 +202,19 @@ const AdminDashboard: React.FC = () => {
           sentAt: new Date().toISOString().split('T')[0]
         };
         setInvites([...invites, newInvite]);
-        setInviteForm({ email: '', role: '', team: '' });
+        setInviteForm({ email: '', role: '', team: '', name: '' });
         setExpandedSection(null);
         // Show success message
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
       } catch (e) {
-        alert('Invite failed');
+        // Show helpful message from server when present
+        // axios unwrap() will throw the rejectWithValue payload or the axios error
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const err: any = e;
+        const msg = err?.message || err?.response?.data?.message || err?.response?.data || 'Invite failed';
+        console.error('[invite] error', err);
+        alert(`Invite failed: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
       }
     })();
   };
@@ -402,6 +416,24 @@ const AdminDashboard: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Full Name
+                    </label>
+                    <div className="relative">
+                      <UserPlus size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        id="name"
+                        value={inviteForm.name}
+                        onChange={(e) => setInviteForm({...inviteForm, name: e.target.value})}
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Full name of the invitee"
+                        required
+                      />
+                    </div>
+                  </div>
                   
                   <div>
                     <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
@@ -445,7 +477,8 @@ const AdminDashboard: React.FC = () => {
                   
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-center space-x-2 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    disabled={!(inviteForm.email && inviteForm.role && inviteForm.team && inviteForm.name)}
+                    className={`w-full flex items-center justify-center space-x-2 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${inviteForm.email && inviteForm.role && inviteForm.team && inviteForm.name ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500' : 'bg-blue-300 cursor-not-allowed'}`}
                   >
                     <Send size={16} />
                     <span>Send Invitation</span>

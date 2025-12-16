@@ -270,15 +270,21 @@ export const fetchUsersList = createAsyncThunk('auth/fetchUsers', async (_, { re
   }
 });
 
-export const inviteUser = createAsyncThunk('auth/inviteUser', async (payload: { email: string; role?: string }, { rejectWithValue }) => {
-  try {
-    const resp = await inviteUserApi(payload);
-    return resp.data;
-  } catch (error) {
-    const err = error as any;
-    return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Invite failed' });
+export const inviteUser = createAsyncThunk(
+  'auth/inviteUser',
+  async (
+    payload: { team: string; email: string; role: string; name: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const resp = await inviteUserApi(payload);
+      return resp.data;
+    } catch (error) {
+      const err = error as any;
+      return rejectWithValue({ message: err?.response?.data?.message || err.message || 'Invite failed' });
+    }
   }
-});
+);
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',

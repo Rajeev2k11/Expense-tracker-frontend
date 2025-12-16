@@ -64,7 +64,7 @@ export async function registerUser(payload: unknown) {
   // or '/api/v1/users/register' for same-origin requests when base is empty.
   const url = trimmed ? `${trimmed}/api/v1/users/register` : '/api/v1/users/register';
   console.debug('[api] registerUser ->', url);
-  return axios.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+  return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
 // Authentication & MFA helpers
@@ -72,61 +72,71 @@ export async function setupPassword(payload: { userId?: string; token?: string; 
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/setup-password` : '/api/v1/users/setup-password';
   console.debug('[api] setupPassword ->', url);
-  return axios.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+  return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
 export async function selectMfaMethod(payload: { userId: string; method: 'authenticator' | 'passkey' }) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/select-mfa-method` : '/api/v1/users/select-mfa-method';
   console.debug('[api] selectMfaMethod ->', url);
-  return axios.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+  return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
 export async function verifyMfa(payload: { userId: string; method: string; code?: string }) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/verify-mfa` : '/api/v1/users/verify-mfa';
   console.debug('[api] verifyMfa ->', url);
-  return axios.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+  return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
 export async function passkeyAuthOptions(payload: { userId: string; action: 'register' | 'authenticate' }) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/passkey-auth-options` : '/api/v1/users/passkey-auth-options';
   console.debug('[api] passkeyAuthOptions ->', url);
-  return axios.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+  return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
 export async function passkeyAuthVerify(payload: { userId: string; action: string; credential: unknown }) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/passkey-auth-verify` : '/api/v1/users/passkey-auth-verify';
   console.debug('[api] passkeyAuthVerify ->', url);
-  return axios.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+  return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
 export async function loginUser(payload: { email: string; password?: string }) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/login` : '/api/v1/users/login';
   console.debug('[api] loginUser ->', url, payload.email ? `(email: ${payload.email})` : '');
-  return axios.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+  return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
 export async function fetchUsers() {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users` : '/api/v1/users';
   console.debug('[api] fetchUsers ->', url);
-  return axios.get(url, { timeout: DEFAULT_TIMEOUT });
+  return api.get(url, { timeout: DEFAULT_TIMEOUT });
 }
 
 export async function getUser(userId: string) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/${userId}` : `/api/v1/users/${userId}`;
   console.debug('[api] getUser ->', url);
-  return axios.get(url, { timeout: DEFAULT_TIMEOUT });
+  return api.get(url, { timeout: DEFAULT_TIMEOUT });
 }
 
-export async function inviteUser(payload: { email: string; role?: string }) {
+export async function inviteUser(payload: { team: string; email: string; role: string; name: string }) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/invite` : '/api/v1/users/invite';
-  console.debug('[api] inviteUser ->', url);
-  return axios.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+  console.debug('[api] inviteUser ->', url, payload);
+  try {
+    const resp = await api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
+    console.debug('[api] inviteUser <-', resp.status, resp.data);
+    return resp;
+  } catch (err) {
+    // Log server response body if available for easier debugging
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e: any = err;
+    console.error('[api] inviteUser error ->', e?.response?.status, e?.response?.data || e.message || e);
+    throw err;
+  }
 }

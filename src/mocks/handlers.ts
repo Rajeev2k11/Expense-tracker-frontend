@@ -144,13 +144,14 @@ export const handlers = [
 
   rest.post('/api/v1/users/invite', async (req, res, ctx) => {
     const body = await req.json();
-    const { email, role } = body;
+    const { email, role, team, name } = body;
     const id = uid();
     const invitedUser = {
       id,
-      fullName: email.split('@')[0],
+      fullName: name || email.split('@')[0],
       email,
       role: role || 'Employee',
+      team: team || '',
       token: `token-${id}`,
       invited: true,
       passwordSet: false,
