@@ -189,18 +189,8 @@ const CategoryDonut: React.FC<CategoryDonutProps> = ({ data }) => {
           />
         </PieChart>
       </ResponsiveContainer>
+    
       
-      {/* Center Text */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-gray-900">
-            ${totalValue.toLocaleString()}
-          </div>
-          <div className="text-xs text-gray-500 mt-1">
-            Total
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
