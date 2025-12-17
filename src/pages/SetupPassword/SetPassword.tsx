@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch } from '../../redux/hooks';
 import { setupPassword } from '../../redux/slices/authSlice';
 
@@ -17,6 +17,8 @@ const SetPassword: React.FC = () => {
 
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const [searchParams] = useSearchParams();
+  const tokenParam = searchParams.get('token');
   const specialCharacters = '@#*%_()$';
 
   const validatePassword = (password: string) => {
@@ -50,12 +52,36 @@ const SetPassword: React.FC = () => {
   const handleSetupPassword = () => {
     if (isSetupEnabled) {
       // Call API to set password then navigate to MFA setup
+      // Use token from invite link when present (preferred) — do not send userId
+      if (tokenParam) {
+        // Persist token immediately so subsequent requests include Authorization header
+        try {
+          localStorage.setItem('token', tokenParam);
+        } catch {}
+
+        dispatch(setupPassword({ token: tokenParam, password: newPassword }))
+          .unwrap()
+          .then((resp: any) => {
+            // If backend returned a token or challengeId, ensure they're stored
+            if (resp?.token) localStorage.setItem('token', resp.token);
+            if (resp?.challengeId) localStorage.setItem('mfaChallengeId', resp.challengeId);
+            navigate('/mfa/setup');
+          })
+          .catch((e) => console.error('Setup password failed', e));
+        return;
+      }
+
+      // Fallback (older flows): try to use local user id
       const raw = localStorage.getItem('user');
       const user = raw ? JSON.parse(raw) : null;
       if (user?.id) {
         dispatch(setupPassword({ userId: user.id, password: newPassword }))
           .unwrap()
-          .then(() => navigate('/mfa/setup'))
+          .then((resp: any) => {
+            if (resp?.token) localStorage.setItem('token', resp.token);
+            if (resp?.challengeId) localStorage.setItem('mfaChallengeId', resp.challengeId);
+            navigate('/mfa/setup');
+          })
           .catch((e) => console.error('Setup password failed', e));
       } else {
         navigate('/mfa/setup');

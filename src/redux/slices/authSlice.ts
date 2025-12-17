@@ -129,7 +129,42 @@ export const setupPassword = createAsyncThunk(
           (users[idx] as any).passwordSet = true;
           setStoredUsers(users);
         }
+      } else if (data.token) {
+        const idx = users.findIndex((u) => u.token === data.token);
+        if (idx !== -1) {
+          (users[idx] as any).password = data.password;
+          (users[idx] as any).passwordSet = true;
+          setStoredUsers(users);
+        }
       }
+
+      // If backend returned a token or user, store them so subsequent calls are authorized
+      const token = resp?.data?.token ?? resp?.token;
+      const returnedUser = resp?.data?.user ?? resp?.user;
+      if (token) {
+        try {
+          localStorage.setItem('token', token);
+        } catch {}
+      }
+      if (returnedUser) {
+        try {
+          localStorage.setItem('user', JSON.stringify(returnedUser));
+        } catch {}
+      }
+
+      // If backend provided a challengeId (for MFA flow), persist it for next step
+      const challengeId = resp?.data?.challengeId;
+      if (challengeId) {
+        try {
+          localStorage.setItem('mfaChallengeId', challengeId);
+        } catch {}
+      }
+
+      // Notify other parts of app that auth state may have changed
+      try {
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('auth:changed'));
+      } catch {}
+
       return resp.data;
     } catch (error) {
       const err = error as any;
@@ -141,16 +176,20 @@ export const setupPassword = createAsyncThunk(
 export const selectMfaMethod = createAsyncThunk(
   'auth/selectMfaMethod',
   async (
-    data: { userId: string; method: 'authenticator' | 'passkey' },
+    data: { userId?: string; method?: 'authenticator' | 'passkey'; challengeId?: string; mfaMethod?: 'TOTP' | 'PASSKEY' },
     { rejectWithValue }
   ) => {
     try {
-      const resp = await selectMfaApi(data);
+      const resp = await selectMfaApi(data as any);
       // update local store
       const users = getStoredUsers();
-      const idx = users.findIndex((u) => u.id === data.userId);
+      let idx = -1;
+      if (data.userId) idx = users.findIndex((u) => u.id === data.userId);
+      else if (data.challengeId) idx = users.findIndex((u) => (u as any)._lastMfaChallenge === data.challengeId);
+
       if (idx !== -1) {
-        (users[idx] as any).mfaMethod = data.method;
+        const method = data.method || (data.mfaMethod === 'TOTP' ? 'authenticator' : 'passkey');
+        (users[idx] as any).mfaMethod = method;
         if (resp.data?.secret) (users[idx] as any).totpSecret = resp.data.secret;
         setStoredUsers(users);
       }
@@ -165,14 +204,17 @@ export const selectMfaMethod = createAsyncThunk(
 export const verifyMfa = createAsyncThunk(
   'auth/verifyMfa',
   async (
-    data: { userId: string; method: string; code?: string },
+    data: { userId?: string; method?: string; code?: string; challengeId?: string; totpCode?: string },
     { rejectWithValue }
   ) => {
     try {
-      const resp = await verifyMfaApi(data);
+      const resp = await verifyMfaApi(data as any);
       if (resp.data?.verified) {
         const users = getStoredUsers();
-        const idx = users.findIndex((u) => u.id === data.userId);
+        let idx = -1;
+        if (data.userId) idx = users.findIndex((u) => u.id === data.userId);
+        else if (data.challengeId) idx = users.findIndex((u) => (u as any)._lastMfaChallenge === data.challengeId);
+
         if (idx !== -1) {
           (users[idx] as any).mfaVerified = true;
           setStoredUsers(users);

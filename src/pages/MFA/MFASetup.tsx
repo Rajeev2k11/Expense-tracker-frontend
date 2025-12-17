@@ -11,7 +11,34 @@ const MFASetup: React.FC = () => {
   const dispatch = useAppDispatch();
 
   const handleContinue = () => {
+    const challengeId = localStorage.getItem('mfaChallengeId');
+
     if (selectedMethod === 'authenticator') {
+      // Clear any previous QR/secret while we request a fresh one
+      try {
+        localStorage.removeItem('mfaSecret');
+        localStorage.removeItem('mfaQr');
+        localStorage.removeItem('mfaOtpAuth');
+      } catch {}
+
+      // Inform backend we selected TOTP for this challenge (if present)
+      if (challengeId) {
+        dispatch(selectMfaMethod({ challengeId, mfaMethod: 'TOTP' }))
+          .unwrap()
+          .then((resp: any) => {
+            console.debug('[MFA] selectMfaMethod ->', resp);
+            if (resp?.secret) localStorage.setItem('mfaSecret', resp.secret);
+            if (resp?.qrImageUrl) localStorage.setItem('mfaQr', resp.qrImageUrl);
+            if (resp?.otpauthUrl) localStorage.setItem('mfaOtpAuth', resp.otpauthUrl);
+            navigate('/mfa/authenticator-setup');
+          })
+          .catch((e) => {
+            console.error('selectMfaMethod failed', e);
+            // Still navigate to UI so user can proceed (will show placeholder)
+            navigate('/mfa/authenticator-setup');
+          });
+        return;
+      }
       navigate('/mfa/authenticator-setup');
       return;
     }
@@ -20,10 +47,25 @@ const MFASetup: React.FC = () => {
     const raw = localStorage.getItem('user');
     const user = raw ? JSON.parse(raw) : null;
     if (user?.id) {
+      const maybeChallenge = localStorage.getItem('mfaChallengeId');
+      if (maybeChallenge) {
+        dispatch(selectMfaMethod({ challengeId: maybeChallenge, mfaMethod: 'PASSKEY' }))
+          .unwrap()
+          .then((resp: any) => {
+            console.debug('[MFA] selectMfaMethod PASSKEY ->', resp);
+            navigate('/mfa/passkey-setup');
+          })
+          .catch((e) => {
+            console.error('selectMfaMethod PASSKEY failed', e);
+            navigate('/mfa/passkey-setup');
+          });
+        return;
+      }
+
       dispatch(selectMfaMethod({ userId: user.id, method: 'passkey' }))
         .unwrap()
-        .catch(() => {})
-        .finally(() => navigate('/mfa/passkey-setup'));
+        .then(() => navigate('/mfa/passkey-setup'))
+        .catch(() => navigate('/mfa/passkey-setup'));
       return;
     }
 

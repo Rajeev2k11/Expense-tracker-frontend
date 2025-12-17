@@ -2,6 +2,59 @@ import { rest } from 'msw';
 import { users, teams, expenses, transactions, dashboard } from './data';
 import { v4 as uid } from 'uuid';
 
+// Utilities for simple TOTP generation & verification (RFC 6238-ish) using Web Crypto
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function base32Decode(input) {
+  // remove padding and non-base32 chars
+  const clean = (input || '').toUpperCase().replace(/=+$/, '').replace(/[^A-Z2-7]/g, '');
+  const bytes = [];
+  let buffer = 0, bitsLeft = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const val = BASE32_ALPHABET.indexOf(clean.charAt(i));
+    if (val === -1) continue;
+    buffer = (buffer << 5) | val;
+    bitsLeft += 5;
+    if (bitsLeft >= 8) {
+      bytes.push((buffer >>> (bitsLeft - 8)) & 0xFF);
+      bitsLeft -= 8;
+    }
+  }
+  return new Uint8Array(bytes);
+}
+
+function generateBase32Secret(length = 16) {
+  let s = '';
+  for (let i = 0; i < length; i++) s += BASE32_ALPHABET[Math.floor(Math.random() * BASE32_ALPHABET.length)];
+  return s;
+}
+
+async function computeTotp(secret, time = Date.now(), step = 30, digits = 6) {
+  const key = base32Decode(secret);
+  const counter = Math.floor(time / 1000 / step);
+  // 8-byte big-endian
+  const buf = new ArrayBuffer(8);
+  const view = new DataView(buf);
+  // set as BigUint
+  view.setBigUint64(0, BigInt(counter));
+  const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, buf));
+  const offset = sig[sig.length - 1] & 0xf;
+  const code = ((sig[offset] & 0x7f) << 24) | ((sig[offset + 1] & 0xff) << 16) | ((sig[offset + 2] & 0xff) << 8) | (sig[offset + 3] & 0xff);
+  const otp = (code % (10 ** digits)).toString().padStart(digits, '0');
+  return otp;
+}
+
+async function verifyTotp(secret, candidate) {
+  // accept -1, 0, +1 windows
+  const now = Date.now();
+  for (let delta = -1; delta <= 1; delta++) {
+    const t = now + delta * 30000;
+    const expected = await computeTotp(secret, t);
+    if (expected === candidate) return true;
+  }
+  return false;
+}
+
 export const handlers = [
   // User management & MFA endpoints (v1)
   rest.post('/api/v1/users/register', async (req, res, ctx) => {
@@ -33,35 +86,68 @@ export const handlers = [
     if (!user) return res(ctx.status(404), ctx.json({ message: 'User not found' }));
     user.password = password;
     user.passwordSet = true;
-    return res(ctx.status(200), ctx.json({ message: 'Password set' }));
+
+    // Create a challengeId to be used for subsequent MFA selection/verification
+    const challenge = Math.random().toString(36).substring(2, 15);
+    user._lastMfaChallenge = challenge;
+
+    return res(ctx.status(200), ctx.json({ message: 'Password set', challengeId: challenge }));
   }),
 
   rest.post('/api/v1/users/select-mfa-method', async (req, res, ctx) => {
     const body = await req.json();
-    const { userId, method } = body;
-    const user = users.find((u) => u.id === userId) as any;
+    // Support both old (userId+method) and new (challengeId+mfaMethod) flows
+    const { userId, method, challengeId, mfaMethod } = body;
+    let user = null as any;
+    if (userId) user = users.find((u) => u.id === userId) as any;
+    else if (challengeId) user = users.find((u) => (u as any)._lastMfaChallenge === challengeId) as any;
+
     if (!user) return res(ctx.status(404), ctx.json({ message: 'User not found' }));
-    user.mfaMethod = method;
-    // If authenticator, return a mock secret for TOTP setup
-    if (method === 'authenticator') {
-      user.totpSecret = 'MOB7EMRTODRTUDG51EMF6J2ATKDTFES4';
-      return res(ctx.status(200), ctx.json({ method, secret: user.totpSecret }));
+
+    // Normalize into internal 'authenticator' or 'passkey'
+    const finalMethod = method || (mfaMethod === 'TOTP' ? 'authenticator' : mfaMethod === 'PASSKEY' ? 'passkey' : undefined);
+    if (!finalMethod) return res(ctx.status(400), ctx.json({ message: 'Invalid method' }));
+
+    user.mfaMethod = finalMethod;
+
+    // If authenticator/TOTP, generate secret and a QR image (otpauth URL)
+    if (finalMethod === 'authenticator') {
+      const secret = generateBase32Secret(16);
+      user.totpSecret = secret;
+      const issuer = encodeURIComponent('Expense Tracker');
+      const label = encodeURIComponent(user.email || user.fullName || 'user');
+      const otpauth = `otpauth://totp/${issuer}:${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+      const qrImageUrl = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(otpauth)}`;
+      return res(ctx.status(200), ctx.json({ method: 'TOTP', secret: user.totpSecret, qrImageUrl, otpauthUrl: otpauth, challengeId: user._lastMfaChallenge }));
     }
-    return res(ctx.status(200), ctx.json({ method }));
+
+    return res(ctx.status(200), ctx.json({ method: 'PASSKEY', challengeId: user._lastMfaChallenge }));
   }),
 
   rest.post('/api/v1/users/verify-mfa', async (req, res, ctx) => {
     const body = await req.json();
-    const { userId, code, method } = body;
-    const user = users.find((u) => u.id === userId) as any;
+    // Accept both old and new payloads: { userId, method, code } or { challengeId, totpCode }
+    const { userId, code, method, challengeId, totpCode } = body as any;
+    let user = null as any;
+    if (userId) user = users.find((u) => u.id === userId) as any;
+    else if (challengeId) user = users.find((u) => (u as any)._lastMfaChallenge === challengeId) as any;
+
     if (!user) return res(ctx.status(404), ctx.json({ message: 'User not found' }));
-    // For demo accept 123456 as valid TOTP code
-    if (method === 'authenticator') {
-      if (code === '123456') {
-        user.mfaVerified = true;
-        return res(ctx.status(200), ctx.json({ verified: true }));
+
+    const finalCode = code || totpCode;
+    const finalMethod = method || (user.mfaMethod || 'authenticator');
+
+    if (finalMethod === 'authenticator') {
+      try {
+        const ok = await verifyTotp(user.totpSecret, finalCode);
+        if (ok) {
+          user.mfaVerified = true;
+          return res(ctx.status(200), ctx.json({ verified: true }));
+        }
+        return res(ctx.status(400), ctx.json({ verified: false, message: 'Invalid code' }));
+      } catch (e) {
+        return res(ctx.status(500), ctx.json({ message: 'TOTP check failed' }));
       }
-      return res(ctx.status(400), ctx.json({ verified: false, message: 'Invalid code' }));
     }
     return res(ctx.status(400), ctx.json({ message: 'Unsupported method' }));
   }),
@@ -160,7 +246,8 @@ export const handlers = [
       passkeys: [],
     };
     users.push(invitedUser as any);
-    return res(ctx.status(201), ctx.json({ user: invitedUser, inviteLink: `/invite/${id}` }));
+    // Include token as query param on invite link so client can pick it up
+    return res(ctx.status(201), ctx.json({ user: invitedUser, inviteLink: `/invite/${id}?token=${invitedUser.token}` }));
   }),
 
   rest.post('/api/auth/signup', async (req, res, ctx) => {

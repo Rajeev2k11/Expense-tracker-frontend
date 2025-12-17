@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.0",
+    "@simplewebauthn/browser": "^11.0.0",
     "@tailwindcss/vite": "^4.1.17",
     "axios": "^1.4.0",
     "classnames": "^2.3.2",
@@ -20,6 +21,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.45.0",
+    "react-qr-code": "^2.0.18",
     "react-redux": "^9.2.0",
     "react-router-dom": "^6.16.0",
     "recharts": "^2.7.2",
@@ -27,7 +29,6 @@
     "tailwindcss": "^4.1.17",
     "uuid": "^9.0.1",
     "zod": "^4.1.13"
-    ,"@simplewebauthn/browser": "^11.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

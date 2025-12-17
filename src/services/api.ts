@@ -53,7 +53,7 @@ function getBase() {
 }
 
 // Default request timeout for remote API calls (ms)
-const DEFAULT_TIMEOUT = 10000;
+const DEFAULT_TIMEOUT = 10000000;
 
 // Helper to call the real backend register endpoint. If `VITE_API_BASE_URL` is set
 // (Vite env var) the call will go to that host; otherwise it will fall back to
@@ -75,17 +75,17 @@ export async function setupPassword(payload: { userId?: string; token?: string; 
   return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
-export async function selectMfaMethod(payload: { userId: string; method: 'authenticator' | 'passkey' }) {
+export async function selectMfaMethod(payload: any) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/select-mfa-method` : '/api/v1/users/select-mfa-method';
-  console.debug('[api] selectMfaMethod ->', url);
+  console.debug('[api] selectMfaMethod ->', url, payload);
   return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 
-export async function verifyMfa(payload: { userId: string; method: string; code?: string }) {
+export async function verifyMfa(payload: any) {
   const trimmed = getBase();
   const url = trimmed ? `${trimmed}/api/v1/users/verify-mfa` : '/api/v1/users/verify-mfa';
-  console.debug('[api] verifyMfa ->', url);
+  console.debug('[api] verifyMfa ->', url, payload);
   return api.post(url, payload, { timeout: DEFAULT_TIMEOUT });
 }
 

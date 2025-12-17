@@ -14,12 +14,21 @@ const VerifyMFA: React.FC = () => {
   };
 
   const handleVerify = () => {
+    const challengeId = localStorage.getItem('mfaChallengeId');
+    if (challengeId) {
+      dispatch(verifyMfa({ challengeId, totpCode: code }))
+        .unwrap()
+        .then(() => navigate('/mfa/success'))
+        .catch((e) => console.error('Verify failed', e));
+      return;
+    }
+
     const raw = localStorage.getItem('user');
     const user = raw ? JSON.parse(raw) : null;
     if (user?.id) {
       dispatch(verifyMfa({ userId: user.id, method: 'authenticator', code }))
         .unwrap()
-        .then(() => navigate('/'))
+        .then(() => navigate('/mfa/success'))
         .catch((e) => console.error('Verify failed', e));
       return;
     }

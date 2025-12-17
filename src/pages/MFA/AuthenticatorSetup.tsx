@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, Copy, Check, Smartphone, Scan } from 'lucide-react';
 import { useAppDispatch } from '../../redux/hooks';
 import { verifyMfa } from '../../redux/slices/authSlice';
+import QRCode from 'react-qr-code';
 
 const AuthenticatorSetup: React.FC = () => {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
 
-  const secretKey = 'MOB7EMRTODRTUDG51EMF6J2ATKDTFES4';
+  const secretKey = localStorage.getItem('mfaSecret') || 'MOB7EMRTODRTUDG51EMF6J2ATKDTFES4';
+  const qrImageUrl = localStorage.getItem('mfaQr');
+  const otpauthUrl = localStorage.getItem('mfaOtpAuth');
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretKey);
@@ -19,6 +22,15 @@ const AuthenticatorSetup: React.FC = () => {
 
   const handleVerify = () => {
     if (verificationCode.length === 6) {
+      const challengeId = localStorage.getItem('mfaChallengeId');
+      if (challengeId) {
+        dispatch(verifyMfa({ challengeId, totpCode: verificationCode }))
+          .unwrap()
+          .then(() => navigate('/mfa/success'))
+          .catch((e) => console.error('Verify MFA failed', e));
+        return;
+      }
+
       const raw = localStorage.getItem('user');
       const user = raw ? JSON.parse(raw) : null;
       if (user?.id) {
@@ -78,14 +90,22 @@ const AuthenticatorSetup: React.FC = () => {
                 </div>
                 
                 <div className="flex justify-center mb-4">
-                  <div className="bg-white p-4 border-2 border-dashed border-gray-300 rounded-lg">
-                    <div className="w-48 h-48 bg-gray-100 flex items-center justify-center rounded">
-                      <div className="text-center text-gray-500">
-                        <div className="text-sm mb-2">QR Code</div>
-                        <div className="text-xs">Would be generated here</div>
+                  {otpauthUrl ? (
+                    <div className="bg-white p-3 rounded">
+                      <QRCode value={otpauthUrl} size={192} />
+                    </div>
+                  ) : qrImageUrl ? (
+                    <img src={qrImageUrl} alt="Authenticator QR" className="w-48 h-48 rounded" />
+                  ) : (
+                    <div className="bg-white p-4 border-2 border-dashed border-gray-300 rounded-lg">
+                      <div className="w-48 h-48 bg-gray-100 flex items-center justify-center rounded">
+                        <div className="text-center text-gray-500">
+                          <div className="text-sm mb-2">QR Code</div>
+                          <div className="text-xs">Would be generated here</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 
                 <p className="text-sm text-gray-600 text-center">
