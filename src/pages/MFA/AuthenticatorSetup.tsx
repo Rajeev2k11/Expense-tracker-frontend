@@ -1,18 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, Copy, Check, Smartphone, Scan } from 'lucide-react';
 import { useAppDispatch } from '../../redux/hooks';
-import { verifyMfa } from '../../redux/slices/authSlice';
+import { verifyMfa, selectMfaMethod } from '../../redux/slices/authSlice';
 import QRCode from 'react-qr-code';
 
 const AuthenticatorSetup: React.FC = () => {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
+  const [secretKey, setSecretKey] = useState<string>(localStorage.getItem('mfaSecret') || 'MOB7EMRTODRTUDG51EMF6J2ATKDTFES4');
+  const [qrImageUrl, setQrImageUrl] = useState<string | null>(localStorage.getItem('mfaQr'));
+  const [otpauthUrl, setOtpauthUrl] = useState<string | null>(localStorage.getItem('mfaOtpAuth'));
+  const [error, setError] = useState<string | null>(null);
 
-  const secretKey = localStorage.getItem('mfaSecret') || 'MOB7EMRTODRTUDG51EMF6J2ATKDTFES4';
-  const qrImageUrl = localStorage.getItem('mfaQr');
-  const otpauthUrl = localStorage.getItem('mfaOtpAuth');
+  type SetupResp = {
+    message?: string;
+    challengeId?: string;
+    secret?: string;
+    qrCode?: string; // base64 or data URL
+    qrImageUrl?: string;
+    otpAuthUrl?: string;
+    otpauthUrl?: string;
+  };
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretKey);
@@ -45,6 +55,56 @@ const AuthenticatorSetup: React.FC = () => {
   };
 
   const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    // If server already provided values via previous step, no need to fetch
+    if (secretKey && (qrImageUrl || otpauthUrl)) return;
+
+    // Try to request a fresh TOTP setup from backend (use challengeId or userId)
+    const fetchSetup = async () => {
+      setError(null);
+      try {
+        const challengeId = localStorage.getItem('mfaChallengeId');
+        const raw = localStorage.getItem('user');
+        const user = raw ? JSON.parse(raw) : null;
+
+        const payload: { userId?: string; challengeId?: string; mfaMethod: 'TOTP' } = {
+          mfaMethod: 'TOTP',
+        };
+        if (challengeId) payload.challengeId = challengeId;
+        else if (user?.id) payload.userId = user.id;
+
+        const resp = (await dispatch(selectMfaMethod(payload)).unwrap()) as SetupResp;
+        // API schema may return: secret, qrCode, otpAuthUrl, qrImageUrl
+        const secret = resp?.secret;
+        const qr = resp?.qrCode ?? resp?.qrImageUrl ?? null;
+        const otp = resp?.otpAuthUrl ?? resp?.otpauthUrl ?? null;
+        const returnedChallenge = resp?.challengeId;
+
+        if (secret) {
+          setSecretKey(secret);
+          try { localStorage.setItem('mfaSecret', secret); } catch (err) { console.error('store mfaSecret failed', err); }
+        }
+        if (qr) {
+          setQrImageUrl(qr);
+          try { localStorage.setItem('mfaQr', qr); } catch (err) { console.error('store mfaQr failed', err); }
+        }
+        if (otp) {
+          setOtpauthUrl(otp);
+          try { localStorage.setItem('mfaOtpAuth', otp); } catch (err) { console.error('store mfaOtpAuth failed', err); }
+        }
+        if (returnedChallenge) {
+          try { localStorage.setItem('mfaChallengeId', returnedChallenge); } catch (err) { console.error('store mfaChallengeId failed', err); }
+        }
+      } catch (err) {
+          console.error('Failed to fetch authenticator setup', err);
+          const message = err instanceof Error ? err.message : String(err);
+          setError(message || 'Failed to generate QR/secret from server');
+        }
+    };
+
+    fetchSetup();
+  }, [dispatch, otpauthUrl, qrImageUrl, secretKey]);
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -111,6 +171,11 @@ const AuthenticatorSetup: React.FC = () => {
                 <p className="text-sm text-gray-600 text-center">
                   Scan this QR code with your authenticator app to set up Multi-factor authentication.
                 </p>
+                {error && (
+                  <div className="mt-4 text-sm text-red-600 text-center" role="alert">
+                    {error}
+                  </div>
+                )}
               </div>
 
               {/* Secret Key Section */}
