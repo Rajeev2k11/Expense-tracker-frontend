@@ -1,12 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, Shield, Smartphone, Key } from 'lucide-react';
+import { selectMfaMethod } from '../../features/mfaSetup/mfaSetupSlice';
+import type { AppDispatch, RootState } from '@/store';
 
 const MFASetup: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const [selectedMethod, setSelectedMethod] = useState<'authenticator' | 'passkey'>('authenticator');
+  
+  const { loading, error, challengeId, mfaMethodSelected } = useSelector(
+    (state: RootState) => state.mfaSetup
+  );
 
   // Passkey flow is handled in a separate page (`/mfa/passkey`).
+  console.log('challengeId', challengeId);
+  useEffect(() => {
+    // Navigate to authenticator setup when MFA method is successfully selected
+    if (mfaMethodSelected && selectedMethod === 'authenticator') {
+      navigate('/mfa/authenticator-setup');
+    } else if (mfaMethodSelected && selectedMethod === 'passkey') {
+      navigate('/mfa/passkey');
+    }
+  }, [mfaMethodSelected, selectedMethod, navigate]);
+
+  const handleContinue = async () => {
+    if (!challengeId) {
+      console.error('No challengeId available');
+      return;
+    }
+
+    const mfaMethod = selectedMethod === 'authenticator' ? 'TOTP' : 'PASSKEY';
+    await dispatch(selectMfaMethod({ challengeId, mfaMethod }));
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -35,6 +62,13 @@ const MFASetup: React.FC = () => {
               Choose a method to add an extra layer of security to your account
             </p>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
 
           {/* Method Selection */}
           <div className="space-y-4 mb-8">
@@ -105,17 +139,25 @@ const MFASetup: React.FC = () => {
 
           {/* Continue Button */}
           <button
-            onClick={() => {
-              if (selectedMethod === 'authenticator') {
-                navigate('/mfa/authenticator-setup');
-              } else {
-                // Navigate to dedicated passkey setup page
-                navigate('/mfa/passkey');
-              }
-            }}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors shadow-sm"
+            onClick={handleContinue}
+            disabled={loading || !challengeId}
+            className={`w-full py-3 px-4 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors shadow-sm ${
+              loading || !challengeId
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
           >
-            {selectedMethod === 'passkey' ? 'Continue to Passkey Setup' : 'Continue'}
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Setting up...
+              </span>
+            ) : (
+              selectedMethod === 'passkey' ? 'Continue to Passkey Setup' : 'Continue'
+            )}
           </button>
 
           {/* Additional Info */}

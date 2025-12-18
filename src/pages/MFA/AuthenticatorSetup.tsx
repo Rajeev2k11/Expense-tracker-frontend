@@ -1,13 +1,24 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { ArrowLeft, Shield, Copy, Check, Smartphone, Scan } from 'lucide-react';
+import  QRCodeSVG  from 'react-qr-code';
+import type { RootState } from '@/store';
 
 const AuthenticatorSetup: React.FC = () => {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
 
-  const secretKey = 'MOB7EMRTODRTUDG51EMF6J2ATKDTFES4';
+  const { secret, qrCode, otpAuthUrl } = useSelector(
+    (state: RootState) => state.mfaSetup
+  );
+console.log('secret', secret);
+console.log('qrCode', qrCode);
+console.log('otpAuthUrl', otpAuthUrl);
+  // Use secret from Redux or fallback for development
+  const secretKey = secret || '';
+  const qrCodeValue = otpAuthUrl || '';
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretKey);
@@ -67,13 +78,12 @@ const AuthenticatorSetup: React.FC = () => {
                 </div>
                 
                 <div className="flex justify-center mb-4">
-                  <div className="bg-white p-4 border-2 border-dashed border-gray-300 rounded-lg">
-                    <div className="w-48 h-48 bg-gray-100 flex items-center justify-center rounded">
-                      <div className="text-center text-gray-500">
-                        <div className="text-sm mb-2">QR Code</div>
-                        <div className="text-xs">Would be generated here</div>
-                      </div>
-                    </div>
+                  <div className="bg-white p-4 border-2 border-gray-300 rounded-lg shadow-sm">
+                    <QRCodeSVG 
+                      value={qrCodeValue}
+                      size={192}
+                      level="H"
+                    />
                   </div>
                 </div>
                 

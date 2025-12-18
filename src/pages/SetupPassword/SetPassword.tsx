@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { setupPassword, setChallengeId, setMessagefromSetPassword } from '../../features/mfaSetup/mfaSetupSlice';
+import type { AppDispatch, RootState } from '@/store';
+
 
 const SetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
@@ -12,9 +16,16 @@ const SetPassword: React.FC = () => {
     hasSpecialChar: false,
   });
   const [showRequirements, setShowRequirements] = useState(false);
-
+  const [searchParams] = useSearchParams();
+  
+  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const { loading, error, success, challengeId, message } = useSelector(
+    (state: RootState) => state.mfaSetup
+  );
+  
   const specialCharacters = '@#*%_()$';
+  const token = searchParams.get('token') || '';
 
   const validatePassword = (password: string) => {
     const checks = {
@@ -44,10 +55,20 @@ const SetPassword: React.FC = () => {
     setConfirmPassword(e.target.value);
   };
 
-  const handleSetupPassword = () => {
-    if (isSetupEnabled) {
-      // Password setup successful, navigate to MFA setup
+
+
+  useEffect(() => {
+    // Navigate to MFA setup on success
+    if (success && challengeId && message) {
+      dispatch(setChallengeId(challengeId));
+      dispatch(setMessagefromSetPassword(message));
       navigate('/mfa/setup');
+    }
+  }, [success, challengeId, navigate, dispatch]);
+
+  const handleSetupPassword = async () => {
+    if (isSetupEnabled && token) {
+      await dispatch(setupPassword({ token, password: newPassword }));
     }
   };
 
@@ -80,6 +101,20 @@ const SetPassword: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-lg border border-gray-200">
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {message && success && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-sm text-green-600">{message}</p>
+            </div>
+          )}
+
           {/* New Password Section */}
           <div className="mb-6">
             <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
@@ -172,14 +207,24 @@ const SetPassword: React.FC = () => {
           <button
             type="button"
             onClick={handleSetupPassword}
-            disabled={!isSetupEnabled}
+            disabled={!isSetupEnabled || loading}
             className={`w-full py-3 px-4 rounded-md font-medium transition-colors ${
-              isSetupEnabled
+              isSetupEnabled && !loading
                 ? 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            Setup Password
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Setting up...
+              </span>
+            ) : (
+              'Setup Password'
+            )}
           </button>
         </div>
       </div>
