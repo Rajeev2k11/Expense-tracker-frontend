@@ -1,6 +1,7 @@
-// AdminDashboard.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { sendInvite, resetInvite } from '../../features/invite/inviteSlice';
 import { 
   Users, 
   Settings, 
@@ -51,7 +52,11 @@ interface Invite {
 }
 
 const AdminDashboard: React.FC = () => {
-  // State for employees
+  const dispatch = useAppDispatch();
+  const { loading: inviteLoading, error: inviteError, success: inviteSuccess } = useAppSelector(
+    (state) => state.invite
+  );
+
   const [employees, setEmployees] = useState<Employee[]>([
     {
       id: '1',
@@ -91,7 +96,6 @@ const AdminDashboard: React.FC = () => {
     }
   ]);
 
-  // State for teams
   const [teams, setTeams] = useState<Team[]>([
     {
       id: '1',
@@ -127,7 +131,6 @@ const AdminDashboard: React.FC = () => {
     }
   ]);
 
-  // State for invites
   const [invites, setInvites] = useState<Invite[]>([
     {
       id: '1',
@@ -155,7 +158,6 @@ const AdminDashboard: React.FC = () => {
     }
   ]);
 
-  // State for forms
   const [inviteForm, setInviteForm] = useState({
     email: '',
     role: '',
@@ -188,10 +190,9 @@ const AdminDashboard: React.FC = () => {
       members: employees.filter(emp => emp.team === team.name)
     }));
     setTeams(updatedTeams);
-  }, [employees, teams]);
+  }, [employees]);
 
-  // Invite Employee Handler
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!inviteForm.email || !inviteForm.role || !inviteForm.team) {
@@ -199,22 +200,27 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     
-    const newInvite: Invite = {
-      id: Date.now().toString(),
+    const result = await dispatch(sendInvite({
       email: inviteForm.email,
       role: inviteForm.role,
-      team: inviteForm.team,
-      status: 'pending',
-      sentAt: new Date().toISOString().split('T')[0]
-    };
+      team: inviteForm.team
+    }));
     
-    setInvites([...invites, newInvite]);
-    setInviteForm({ email: '', role: '', team: '' });
-    setExpandedSection(null);
-    
-    // Show success message
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    if (result.meta.requestStatus === 'fulfilled') {
+      const newInvite: Invite = {
+        id: Date.now().toString(),
+        email: inviteForm.email,
+        role: inviteForm.role,
+        team: inviteForm.team,
+        status: 'pending',
+        sentAt: new Date().toISOString().split('T')[0]
+      };
+      
+      setInvites([...invites, newInvite]);
+      setInviteForm({ email: '', role: '', team: '' });
+      setExpandedSection(null);
+      dispatch(resetInvite());
+    }
   };
 
   // Create Team Handler
@@ -455,12 +461,19 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   
+                  {inviteError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                      {inviteError}
+                    </div>
+                  )}
+                  
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-center space-x-2 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    disabled={inviteLoading}
+                    className="w-full flex items-center justify-center space-x-2 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send size={16} />
-                    <span>Send Invitation</span>
+                    <span>{inviteLoading ? 'Sending...' : 'Send Invitation'}</span>
                   </button>
                 </form>
               </div>

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { v4 as uid } from 'uuid';
 import type { User, Role, ProfileFormData } from '../types';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
+import { performLogin } from '../features/auth/loginSlice';
 
 // LocalStorage keys
 const USERS_KEY = 'mock_users';
@@ -38,6 +40,11 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const dispatch = useAppDispatch();
+  const { user: reduxUser, token: reduxToken, loading: reduxLoading, error: reduxError } = useAppSelector(
+    (state) => state.auth
+  );
+
   const [user, setUser] = useState<User | null>(() => {
     const raw = localStorage.getItem('user');
     return raw ? (JSON.parse(raw) as User) : null;
@@ -75,29 +82,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStoredUsers(updatedUsers);
   };
 
-  const login = async (email: string) => {
+  const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Dummy local login: accept any password; if user exists, return it; otherwise create a lightweight user
-      const users = getStoredUsers();
-      let found = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      if (!found) {
-        const id = uid();
-        found = {
-          id,
-          fullName: email.split('@')[0] || 'User',
-          email,
-          role: 'Employee',
-          token: `token-${id}`,
-          phone: '',
-          location: '',
-          department: '',
-          bio: 'Welcome to ExpensePro! Update your profile to get started.'
-        } as User;
-        users.push(found);
-        setStoredUsers(users);
+      const result = await dispatch(performLogin({ email, password }));
+      
+      if (result.meta.requestStatus === 'fulfilled' && result.payload) {
+        const loginResponse = result.payload;
+        const userData = loginResponse.user;
+        const token = loginResponse.token;
+        
+        commit(userData);
+        localStorage.setItem('token', token);
+      } else {
+        throw new Error(reduxError || 'Login failed');
       }
-      commit(found);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     } finally {
       setLoading(false);
     }

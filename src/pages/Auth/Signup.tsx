@@ -3,15 +3,11 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import type { Role } from '../../types';
-
-const roles = ['CEO','CTO','CFO','Founder','Manager','Team Leader','HR','Employee','Client','Designer','Developer','Marketing','Sales','Support'] as Role[];
 
 const schema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.string().min(1, 'Please select a role'),
 });
 
 type Form = z.infer<typeof schema>;
@@ -71,17 +67,6 @@ const Signup: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
           />
           {errors.password && <p className="text-red-500 text-xs">{errors.password.message}</p>}
-
-          <select 
-            {...register('role')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-          >
-            <option value="">Select Role</option>
-            {roles.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-          {errors.role && <p className="text-red-500 text-xs">{errors.role.message}</p>}
 
           <button 
             type="submit"
