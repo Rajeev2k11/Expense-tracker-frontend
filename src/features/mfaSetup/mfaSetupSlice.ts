@@ -5,7 +5,9 @@ import type {
   SetupPasswordRequest, 
   SetupPasswordResponse,
   SelectMfaMethodRequest,
-  SelectMfaMethodResponse 
+  SelectMfaMethodResponse,
+  VerifyMfaRequest,
+  VerifyMfaResponse
 } from './mfaSetupApi';
 
 export interface MfaSetupState {
@@ -19,6 +21,10 @@ export interface MfaSetupState {
   qrCode: string | null;
   otpAuthUrl: string | null;
   mfaMethodSelected: boolean;
+  // MFA verification state
+  verifying: boolean;
+  verifyError: string | null;
+  verified: boolean;
 }
 
 const initialState: MfaSetupState = {
@@ -31,6 +37,9 @@ const initialState: MfaSetupState = {
   qrCode: null,
   otpAuthUrl: null,
   mfaMethodSelected: false,
+  verifying: false,
+  verifyError: null,
+  verified: false,
 };
 
 // Async thunk for setup password
@@ -73,6 +82,26 @@ export const selectMfaMethod = createAsyncThunk<
   }
 );
 
+// Async thunk for verify MFA
+export const verifyMfa = createAsyncThunk<
+  VerifyMfaResponse,
+  VerifyMfaRequest,
+  { rejectValue: string }
+>(
+  'mfaSetup/verifyMfa',
+  async (data, { rejectWithValue }) => {
+    try {
+      const response = await setupPasswordApi.verifyMfa(data);
+      return response;
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to verify MFA code'
+      );
+    }
+  }
+);
+
 const mfaSetupSlice = createSlice({
   name: 'mfaSetup',
   initialState,
@@ -93,9 +122,15 @@ const mfaSetupSlice = createSlice({
       state.qrCode = null;
       state.otpAuthUrl = null;
       state.mfaMethodSelected = false;
+      state.verifying = false;
+      state.verifyError = null;
+      state.verified = false;
     },
     clearError: (state) => {
       state.error = null;
+    },
+    clearVerifyError: (state) => {
+      state.verifyError = null;
     },
   },
   extraReducers: (builder) => {
@@ -138,10 +173,27 @@ const mfaSetupSlice = createSlice({
         state.loading = false;
         state.error = action.payload || 'Failed to select MFA method';
         state.mfaMethodSelected = false;
+      })
+      // Verify MFA
+      .addCase(verifyMfa.pending, (state) => {
+        state.verifying = true;
+        state.verifyError = null;
+        state.verified = false;
+      })
+      .addCase(verifyMfa.fulfilled, (state, action: PayloadAction<VerifyMfaResponse>) => {
+        state.verifying = false;
+        state.verified = true;
+        state.message = action.payload.message;
+        state.verifyError = null;
+      })
+      .addCase(verifyMfa.rejected, (state, action) => {
+        state.verifying = false;
+        state.verified = false;
+        state.verifyError = action.payload || 'Failed to verify MFA code';
       });
   },
 });
 
-export const { setChallengeId, resetMfaSetup, clearError, setMessagefromSetPassword } = mfaSetupSlice.actions;
+export const { setChallengeId, resetMfaSetup, clearError, clearVerifyError, setMessagefromSetPassword } = mfaSetupSlice.actions;
 export default mfaSetupSlice.reducer;
 

@@ -23,6 +23,16 @@ export interface SelectMfaMethodResponse {
   otpAuthUrl: string;
 }
 
+export interface VerifyMfaRequest {
+  challengeId: string;
+  totpCode: string;
+}
+
+export interface VerifyMfaResponse {
+  message: string;
+  success: boolean;
+}
+
 export const setupPasswordApi = {
   setupPassword: async (data: SetupPasswordRequest): Promise<SetupPasswordResponse> => {
     const response = await api.post<SetupPasswordResponse>('/v1/users/setup-password', data);
@@ -31,6 +41,11 @@ export const setupPasswordApi = {
   
   selectMfaMethod: async (data: SelectMfaMethodRequest): Promise<SelectMfaMethodResponse> => {
     const response = await api.post<SelectMfaMethodResponse>('/v1/users/select-mfa-method', data);
+    return response.data;
+  },
+
+  verifyMfa: async (data: VerifyMfaRequest): Promise<VerifyMfaResponse> => {
+    const response = await api.post<VerifyMfaResponse>('/v1/users/verify-mfa', data);
     return response.data;
   },
 };
