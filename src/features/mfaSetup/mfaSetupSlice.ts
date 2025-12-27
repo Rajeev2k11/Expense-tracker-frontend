@@ -5,32 +5,40 @@ import type {
   SetupPasswordRequest, 
   SetupPasswordResponse,
   SelectMfaMethodRequest,
-  SelectMfaMethodResponse 
+  SelectMfaMethodResponse,
+  VerifyMfaSetupRequest,
+  VerifyMfaSetupResponse
 } from './mfaSetupApi';
-
-export interface MfaSetupState {
+interface MfaSetupState {
+  challengeId: string | null;
+  options: Record<string, unknown>;
   loading: boolean;
   error: string | null;
-  challengeId: string | null;
-  message: string | null;
   success: boolean;
-  // MFA method selection state
+  token: string | null;
+  user: unknown | null;
+  message: string | null;
   secret: string | null;
   qrCode: string | null;
   otpAuthUrl: string | null;
   mfaMethodSelected: boolean;
+  successPasskey: boolean;
 }
 
 const initialState: MfaSetupState = {
+  challengeId: null,
+  options: {},
   loading: false,
   error: null,
-  challengeId: null,
-  message: null,
   success: false,
+  token: null,
+  user: null,
+  message: null,
   secret: null,
   qrCode: null,
   otpAuthUrl: null,
   mfaMethodSelected: false,
+  successPasskey: false,
 };
 
 // Async thunk for setup password
@@ -68,6 +76,26 @@ export const selectMfaMethod = createAsyncThunk<
       const err = error as { response?: { data?: { message?: string } } };
       return rejectWithValue(
         err.response?.data?.message || 'Failed to select MFA method'
+      );
+    }
+  }
+);
+
+// Async thunk for verify MFA setup
+export const verifyMfaSetup = createAsyncThunk<
+  VerifyMfaSetupResponse,
+  VerifyMfaSetupRequest,
+  { rejectValue: string }
+>(
+  'mfaSetup/verifyMfaSetup',
+  async (data, { rejectWithValue }) => {
+    try {
+      const response = await setupPasswordApi.verifyMfaSetup(data);
+      return response;
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to verify MFA setup'
       );
     }
   }
@@ -129,15 +157,36 @@ const mfaSetupSlice = createSlice({
         state.mfaMethodSelected = true;
         state.challengeId = action.payload.challengeId;
         state.message = action.payload.message;
-        state.secret = action.payload.secret;
-        state.qrCode = action.payload.qrCode;
-        state.otpAuthUrl = action.payload.otpAuthUrl;
+        state.secret = action.payload.secret ?? null;
+        state.qrCode = action.payload.qrCode ?? null;
+        state.otpAuthUrl = action.payload.otpAuthUrl ?? null;
+        state.options = action.payload.options ?? {};
         state.error = null;
       })
       .addCase(selectMfaMethod.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || 'Failed to select MFA method';
         state.mfaMethodSelected = false;
+      })
+      // Verify MFA Setup
+      .addCase(verifyMfaSetup.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.success = false;
+      })
+      .addCase(verifyMfaSetup.fulfilled, (state, action: PayloadAction<VerifyMfaSetupResponse>) => {
+        state.loading = false;
+      
+        state.successPasskey = true;
+        state.token = action.payload.token;
+        state.user = action.payload.user;
+        state.message = action.payload.message;
+        state.error = null;
+      })
+      .addCase(verifyMfaSetup.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to verify MFA setup';
+        state.success = false;
       });
   },
 });

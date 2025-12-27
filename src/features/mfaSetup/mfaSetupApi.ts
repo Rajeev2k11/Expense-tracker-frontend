@@ -18,9 +18,22 @@ export interface SelectMfaMethodRequest {
 export interface SelectMfaMethodResponse {
   message: string;
   challengeId: string;
-  secret: string;
-  qrCode: string;
-  otpAuthUrl: string;
+  secret?: string;
+  qrCode?: string;
+  otpAuthUrl?: string;
+  options?: Record<string, unknown>;
+}
+
+export interface VerifyMfaSetupRequest {
+  challengeId: string;
+  credential?: Record<string, unknown>;
+  code?: string;
+}
+
+export interface VerifyMfaSetupResponse {
+  message: string;
+  token: string;
+  user: unknown;
 }
 
 export const setupPasswordApi = {
@@ -33,4 +46,9 @@ export const setupPasswordApi = {
     const response = await api.post<SelectMfaMethodResponse>('/v1/users/select-mfa-method', data);
     return response.data;
   },
-};
+
+  verifyMfaSetup: async (data: VerifyMfaSetupRequest): Promise<VerifyMfaSetupResponse> => {
+    const response = await api.post<VerifyMfaSetupResponse>('/v1/users/verify-mfa-setup', data);
+    return response.data;
+  },
+}
