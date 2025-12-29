@@ -1,24 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { ArrowLeft, Shield, Copy, Check, Smartphone, Scan } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { ArrowLeft, Shield, Copy, Check, Smartphone, Scan, AlertCircle } from 'lucide-react';
 import  QRCodeSVG  from 'react-qr-code';
-import type { RootState } from '@/store';
+import type { RootState, AppDispatch } from '@/store';
+import { verifyMfaSetup } from '@/features/mfaSetup/mfaSetupSlice';
 
 const AuthenticatorSetup: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const [copied, setCopied] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
 
-  const { secret, qrCode, otpAuthUrl } = useSelector(
+  const { secret, otpAuthUrl, challengeId, loading, error, successPasskey } = useSelector(
     (state: RootState) => state.mfaSetup
   );
-console.log('secret', secret);
-console.log('qrCode', qrCode);
-console.log('otpAuthUrl', otpAuthUrl);
+  
   // Use secret from Redux or fallback for development
   const secretKey = secret || '';
   const qrCodeValue = otpAuthUrl || '';
+
+  // Navigate to success page after successful verification
+  useEffect(() => {
+    if (successPasskey) {
+      setTimeout(() => {
+        navigate('/mfa/success');
+      }, 1500);
+    }
+  }, [successPasskey, navigate]);
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretKey);
@@ -26,11 +35,17 @@ console.log('otpAuthUrl', otpAuthUrl);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleVerify = () => {
-    if (verificationCode.length === 6) {
-      // Here you would typically verify the code with your backend
-      console.log('Verifying code:', verificationCode);
-      navigate('/mfa/success');
+  const handleVerify = async () => {
+    if (verificationCode.length === 6 && challengeId) {
+      try {
+        await dispatch(verifyMfaSetup({
+          challengeId,
+          code: verificationCode,
+        })).unwrap();
+      } catch (err) {
+        // Error is handled by Redux state
+        console.error('Verification failed:', err);
+      }
     }
   };
 
@@ -178,6 +193,17 @@ console.log('otpAuthUrl', otpAuthUrl);
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Enter Verification Code</h3>
                 
                 <div className="space-y-4">
+                  {/* Error Message */}
+                  {error && (
+                    <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-red-800 font-medium">Verification Failed</p>
+                        <p className="text-sm text-red-700">{error}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-2">
                       6-digit code from your authenticator app
@@ -189,20 +215,31 @@ console.log('otpAuthUrl', otpAuthUrl);
                       onChange={handleCodeChange}
                       maxLength={6}
                       placeholder="000000"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-xl font-mono tracking-widest placeholder-gray-400"
+                      disabled={loading}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-xl font-mono tracking-widest placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
 
                   <button
                     onClick={handleVerify}
-                    disabled={verificationCode.length !== 6}
-                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                      verificationCode.length === 6
+                    disabled={verificationCode.length !== 6 || loading || !challengeId}
+                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 ${
+                      verificationCode.length === 6 && !loading && challengeId
                         ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    Verify & Continue
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      'Verify & Continue'
+                    )}
                   </button>
                 </div>
 
