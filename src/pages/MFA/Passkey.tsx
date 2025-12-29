@@ -120,6 +120,23 @@ const Passkey: React.FC = () => {
       if (!options || Object.keys(options).length === 0) {
         throw new Error('Passkey options not available. Please select MFA method first.');
       }
+   
+      // options example :
+      //   "challenge": "1234567890",
+      //   "user": {
+      //     "id": "1234567890",
+      //     "name": "John Doe",
+      //     "displayName": "John Doe"
+      //   },
+      //   "excludeCredentials": [
+      //     {
+      //       "id": "1234567890",
+      //       "type": "public-key"
+      //     }
+      //   ]
+      // }
+      
+ 
 
       // Parse the options received from the server
       const optionsData = options as Record<string, unknown>;

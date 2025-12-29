@@ -176,7 +176,7 @@ const mfaSetupSlice = createSlice({
       })
       .addCase(verifyMfaSetup.fulfilled, (state, action: PayloadAction<VerifyMfaSetupResponse>) => {
         state.loading = false;
-      
+        state.success = true;
         state.successPasskey = true;
         state.token = action.payload.token;
         state.user = action.payload.user;
