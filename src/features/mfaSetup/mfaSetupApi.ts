@@ -18,9 +18,22 @@ export interface SelectMfaMethodRequest {
 export interface SelectMfaMethodResponse {
   message: string;
   challengeId: string;
-  secret: string;
-  qrCode: string;
-  otpAuthUrl: string;
+  secret?: string;
+  qrCode?: string;
+  otpAuthUrl?: string;
+  options?: Record<string, unknown>;
+}
+
+export interface VerifyMfaSetupRequest {
+  challengeId: string;
+  credential?: Record<string, unknown>;
+  code?: string;
+}
+
+export interface VerifyMfaSetupResponse {
+  message: string;
+  token: string;
+  user: unknown;
 }
 
 export interface VerifyMfaRequest {
@@ -44,8 +57,8 @@ export const setupPasswordApi = {
     return response.data;
   },
 
-  verifyMfa: async (data: VerifyMfaRequest): Promise<VerifyMfaResponse> => {
-    const response = await api.post<VerifyMfaResponse>('/v1/users/verify-mfa', data);
+  verifyMfaSetup: async (data: VerifyMfaSetupRequest): Promise<VerifyMfaSetupResponse> => {
+    const response = await api.post<VerifyMfaSetupResponse>('/v1/users/verify-mfa-setup', data);
     return response.data;
   },
-};
+}

@@ -6,40 +6,39 @@ import type {
   SetupPasswordResponse,
   SelectMfaMethodRequest,
   SelectMfaMethodResponse,
-  VerifyMfaRequest,
-  VerifyMfaResponse
+  VerifyMfaSetupRequest,
+  VerifyMfaSetupResponse
 } from './mfaSetupApi';
-
-export interface MfaSetupState {
+interface MfaSetupState {
+  challengeId: string | null;
+  options: Record<string, unknown>;
   loading: boolean;
   error: string | null;
-  challengeId: string | null;
-  message: string | null;
   success: boolean;
-  // MFA method selection state
+  token: string | null;
+  user: unknown | null;
+  message: string | null;
   secret: string | null;
   qrCode: string | null;
   otpAuthUrl: string | null;
   mfaMethodSelected: boolean;
-  // MFA verification state
-  verifying: boolean;
-  verifyError: string | null;
-  verified: boolean;
+  successPasskey: boolean;
 }
 
 const initialState: MfaSetupState = {
+  challengeId: null,
+  options: {},
   loading: false,
   error: null,
-  challengeId: null,
-  message: null,
   success: false,
+  token: null,
+  user: null,
+  message: null,
   secret: null,
   qrCode: null,
   otpAuthUrl: null,
   mfaMethodSelected: false,
-  verifying: false,
-  verifyError: null,
-  verified: false,
+  successPasskey: false,
 };
 
 // Async thunk for setup password
@@ -82,21 +81,21 @@ export const selectMfaMethod = createAsyncThunk<
   }
 );
 
-// Async thunk for verify MFA
-export const verifyMfa = createAsyncThunk<
-  VerifyMfaResponse,
-  VerifyMfaRequest,
+// Async thunk for verify MFA setup
+export const verifyMfaSetup = createAsyncThunk<
+  VerifyMfaSetupResponse,
+  VerifyMfaSetupRequest,
   { rejectValue: string }
 >(
-  'mfaSetup/verifyMfa',
+  'mfaSetup/verifyMfaSetup',
   async (data, { rejectWithValue }) => {
     try {
-      const response = await setupPasswordApi.verifyMfa(data);
+      const response = await setupPasswordApi.verifyMfaSetup(data);
       return response;
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } } };
       return rejectWithValue(
-        err.response?.data?.message || 'Failed to verify MFA code'
+        err.response?.data?.message || 'Failed to verify MFA setup'
       );
     }
   }
@@ -122,16 +121,12 @@ const mfaSetupSlice = createSlice({
       state.qrCode = null;
       state.otpAuthUrl = null;
       state.mfaMethodSelected = false;
-      state.verifying = false;
-      state.verifyError = null;
-      state.verified = false;
+      
     },
     clearError: (state) => {
       state.error = null;
     },
-    clearVerifyError: (state) => {
-      state.verifyError = null;
-    },
+ 
   },
   extraReducers: (builder) => {
     builder
@@ -164,9 +159,10 @@ const mfaSetupSlice = createSlice({
         state.mfaMethodSelected = true;
         state.challengeId = action.payload.challengeId;
         state.message = action.payload.message;
-        state.secret = action.payload.secret;
-        state.qrCode = action.payload.qrCode;
-        state.otpAuthUrl = action.payload.otpAuthUrl;
+        state.secret = action.payload.secret ?? null;
+        state.qrCode = action.payload.qrCode ?? null;
+        state.otpAuthUrl = action.payload.otpAuthUrl ?? null;
+        state.options = action.payload.options ?? {};
         state.error = null;
       })
       .addCase(selectMfaMethod.rejected, (state, action) => {
@@ -174,26 +170,29 @@ const mfaSetupSlice = createSlice({
         state.error = action.payload || 'Failed to select MFA method';
         state.mfaMethodSelected = false;
       })
-      // Verify MFA
-      .addCase(verifyMfa.pending, (state) => {
-        state.verifying = true;
-        state.verifyError = null;
-        state.verified = false;
+      // Verify MFA Setup
+      .addCase(verifyMfaSetup.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.success = false;
       })
-      .addCase(verifyMfa.fulfilled, (state, action: PayloadAction<VerifyMfaResponse>) => {
-        state.verifying = false;
-        state.verified = true;
+      .addCase(verifyMfaSetup.fulfilled, (state, action: PayloadAction<VerifyMfaSetupResponse>) => {
+        state.loading = false;
+        state.success = true;
+        state.successPasskey = true;
+        state.token = action.payload.token;
+        state.user = action.payload.user;
         state.message = action.payload.message;
-        state.verifyError = null;
+        state.error = null;
       })
-      .addCase(verifyMfa.rejected, (state, action) => {
-        state.verifying = false;
-        state.verified = false;
-        state.verifyError = action.payload || 'Failed to verify MFA code';
+      .addCase(verifyMfaSetup.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to verify MFA setup';
+        state.success = false;
       });
   },
 });
 
-export const { setChallengeId, resetMfaSetup, clearError, clearVerifyError, setMessagefromSetPassword } = mfaSetupSlice.actions;
+export const { setChallengeId, resetMfaSetup, clearError, setMessagefromSetPassword } = mfaSetupSlice.actions;
 export default mfaSetupSlice.reducer;
 

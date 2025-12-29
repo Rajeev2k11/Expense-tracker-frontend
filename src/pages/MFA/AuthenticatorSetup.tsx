@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { ArrowLeft, Shield, Copy, Check, Smartphone, Scan, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Shield, Copy, Check, Smartphone, Scan, AlertCircle } from 'lucide-react';
 import  QRCodeSVG  from 'react-qr-code';
-import type { RootState } from '@/store';
-import { verifyMfa } from '@/features/mfaSetup/mfaSetupSlice';
-import type { AppDispatch } from '@/store';
+import type { RootState, AppDispatch } from '@/store';
+import { verifyMfaSetup } from '@/features/mfaSetup/mfaSetupSlice';
 
 const AuthenticatorSetup: React.FC = () => {
   const navigate = useNavigate();
@@ -13,15 +12,22 @@ const AuthenticatorSetup: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
 
-  const { secret, qrCode, otpAuthUrl, challengeId, verifying, verifyError, verified } = useSelector(
+  const { secret, otpAuthUrl, challengeId, loading, error, successPasskey, success } = useSelector(
     (state: RootState) => state.mfaSetup
   );
-console.log('secret', secret);
-console.log('qrCode', qrCode);
-console.log('otpAuthUrl', otpAuthUrl);
+  
   // Use secret from Redux or fallback for development
   const secretKey = secret || '';
   const qrCodeValue = otpAuthUrl || '';
+
+  // Navigate to success page after successful verification
+  useEffect(() => {
+    if (successPasskey) {
+      setTimeout(() => {
+        navigate('/mfa/success');
+      }, 1500);
+    }
+  }, [successPasskey, navigate]);
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretKey);
@@ -32,22 +38,22 @@ console.log('otpAuthUrl', otpAuthUrl);
   const handleVerify = async () => {
     if (verificationCode.length === 6 && challengeId) {
       try {
-        const result = await dispatch(verifyMfa({
+        await dispatch(verifyMfaSetup({
           challengeId,
-          totpCode: verificationCode
+          code: verificationCode,
         })).unwrap();
-        console.log('verify result', result);
-      } catch (error) {
-        console.error('Verification failed:', error);
+      } catch (err) {
+        // Error is handled by Redux state
+        console.error('Verification failed:', err);
       }
     }
   };
 
-  useEffect(() => {
-    if (verified) {
-      navigate('/mfa/success');
-    }
-  }, [verified, navigate]);
+    useEffect(() => {
+      if (success) {
+        navigate('/mfa/success');
+      }
+    }, [success, navigate]);
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -193,6 +199,17 @@ console.log('otpAuthUrl', otpAuthUrl);
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Enter Verification Code</h3>
                 
                 <div className="space-y-4">
+                  {/* Error Message */}
+                  {error && (
+                    <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-red-800 font-medium">Verification Failed</p>
+                        <p className="text-sm text-red-700">{error}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-2">
                       6-digit code from your authenticator app
@@ -204,13 +221,13 @@ console.log('otpAuthUrl', otpAuthUrl);
                       onChange={handleCodeChange}
                       maxLength={6}
                       placeholder="000000"
-                      disabled={verifying}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-xl font-mono tracking-widest placeholder-gray-400 disabled:bg-gray-100 disabled:text-gray-500"
+                      disabled={loading}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-xl font-mono tracking-widest placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
 
                   {/* Error Message */}
-                  {verifyError && (
+                  {/* {verifyError && (
                     <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
                       <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                       <div>
@@ -218,10 +235,10 @@ console.log('otpAuthUrl', otpAuthUrl);
                         <p className="text-sm text-red-800 mt-1">{verifyError}</p>
                       </div>
                     </div>
-                  )}
+                  )} */}
 
                   {/* Success Message */}
-                  {verified && (
+                  {/* {verified && (
                     <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
                       <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                       <div>
@@ -229,26 +246,24 @@ console.log('otpAuthUrl', otpAuthUrl);
                         <p className="text-sm text-green-800 mt-1">Redirecting to success page...</p>
                       </div>
                     </div>
-                  )}
+                  )} */}
 
                   <button
                     onClick={handleVerify}
-                    disabled={verificationCode.length !== 6 || verifying || verified}
+                    disabled={verificationCode.length !== 6 || loading || !challengeId}
                     className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 ${
-                      verificationCode.length === 6 && !verifying && !verified
+                      verificationCode.length === 6 && !loading && challengeId
                         ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    {verifying ? (
+                    {loading ? (
                       <>
-                        <div className="animate-spin">⟳</div>
-                        Verifying...
-                      </>
-                    ) : verified ? (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        Verified
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Verifying...</span>
                       </>
                     ) : (
                       'Verify & Continue'
