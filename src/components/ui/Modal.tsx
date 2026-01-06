@@ -40,44 +40,54 @@ const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay */}
+    <>
+      {/* Backdrop with blur effect */}
       <div 
-        className="absolute inset-0 bg-gray-600 bg-opacity-50 transition-opacity"
+        className={`fixed inset-0 z-50 transition-all duration-300 ${
+          open 
+            ? 'bg-black/30 backdrop-blur-sm opacity-100' 
+            : 'opacity-0 pointer-events-none'
+        }`}
         onClick={closeOnOverlayClick ? onClose : undefined}
+        aria-hidden="true"
       />
       
       {/* Modal Container */}
-      <div 
-        className={`
-          relative bg-white rounded-xl shadow-xl w-full ${sizeStyles[size]} 
-          transform transition-all duration-300
-          ${open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
-        `}
-      >
-        {/* Header */}
-        {(title || onClose) && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            {title && (
-              <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            )}
-            {onClose && (
-              <button 
-                onClick={onClose}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div 
+          className={`
+            relative bg-white rounded-xl shadow-2xl w-full ${sizeStyles[size]} 
+            transform transition-all duration-300
+            ${open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
+            max-h-[90vh] overflow-hidden flex flex-col
+          `}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          {(title || onClose) && (
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
+              {title && (
+                <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+              )}
+              {onClose && (
+                <button 
+                  onClick={onClose}
+                  className="ml-auto p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+                  aria-label="Close modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          )}
+          
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {children}
           </div>
-        )}
-        
-        {/* Content */}
-        <div className="p-6">
-          {children}
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

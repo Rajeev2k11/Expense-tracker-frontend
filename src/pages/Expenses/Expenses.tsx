@@ -5,7 +5,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useForm } from 'react-hook-form';
-import { Plus, Search, Download, Trash2, Calendar, DollarSign, Tag } from 'lucide-react';
+import { Plus, Search, Download, Trash2, Calendar, DollarSign, Tag, Edit2, MoreVertical } from 'lucide-react';
 
 export type Expense = {
   id: string;
@@ -22,11 +22,14 @@ const ExpensesPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
-  const { register, handleSubmit, reset } = useForm();
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
+  const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
+  const { register, handleSubmit, reset, setValue } = useForm();
 
   const categories = ['All', 'Marketing', 'Meals', 'Travel', 'Software', 'Office', 'Other'];
 
@@ -94,6 +97,7 @@ const ExpensesPage: React.FC = () => {
     setSelectedExpenses(prev => prev.filter(expenseId => expenseId !== id));
     setShowDeleteModal(false);
     setExpenseToDelete(null);
+    setShowActionsMenu(null);
   };
 
   const onBulkDelete = () => {
@@ -119,7 +123,36 @@ const ExpensesPage: React.FC = () => {
     reset();
   };
 
-  // Placeholder for edit functionality not currently implemented
+  // Edit functionality
+  const onEdit = async (data: any) => {
+    if (!expenseToEdit) return;
+
+    const updatedExpense: Expense = {
+      ...expenseToEdit,
+      title: data.title,
+      amount: parseFloat(data.amount),
+      category: data.category,
+      description: data.description || ''
+    };
+
+    setExpenses(prev => prev.map(expense => 
+      expense.id === expenseToEdit.id ? updatedExpense : expense
+    ));
+    setShowEditModal(false);
+    setExpenseToEdit(null);
+    reset();
+    setShowActionsMenu(null);
+  };
+
+  const openEditModal = (expense: Expense) => {
+    setExpenseToEdit(expense);
+    setValue('title', expense.title);
+    setValue('description', expense.description);
+    setValue('amount', expense.amount);
+    setValue('category', expense.category);
+    setShowEditModal(true);
+    setShowActionsMenu(null);
+  };
 
   const filteredExpenses = expenses.filter(expense => {
     const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -216,7 +249,24 @@ const ExpensesPage: React.FC = () => {
       setExpenseToDelete(expense);
     }
     setShowDeleteModal(true);
+    setShowActionsMenu(null);
   };
+
+  const toggleActionsMenu = (expenseId: string) => {
+    setShowActionsMenu(prev => prev === expenseId ? null : expenseId);
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowActionsMenu(null);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
 
   return (
     <Layout>
@@ -448,13 +498,36 @@ const ExpensesPage: React.FC = () => {
                         </Badge>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
+                        <div className="relative">
                           <button 
-                            onClick={() => openDeleteModal(expense)}
-                            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleActionsMenu(expense.id);
+                            }}
+                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <MoreVertical className="w-4 h-4" />
                           </button>
+                          
+                          {/* Actions Dropdown Menu */}
+                          {showActionsMenu === expense.id && (
+                            <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                              <button
+                                onClick={() => openEditModal(expense)}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => openDeleteModal(expense)}
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -537,6 +610,84 @@ const ExpensesPage: React.FC = () => {
               </Button>
             </div>
           </form>
+        </Modal>
+
+        {/* Edit Expense Modal */}
+        <Modal
+          open={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setExpenseToEdit(null);
+            reset();
+          }}
+          title="Edit Expense"
+          size="md"
+        >
+          {expenseToEdit && (
+            <form onSubmit={handleSubmit(onEdit)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <input
+                  {...register('title', { required: true })}
+                  placeholder="Enter expense title"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  {...register('description')}
+                  placeholder="Enter expense description"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                  <input
+                    {...register('amount', { required: true, valueAsNumber: true })}
+                    type="number"
+                    placeholder="0.00"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <select
+                    {...register('category', { required: true })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  >
+                    <option value="">Select category</option>
+                    {categories.filter(cat => cat !== 'All').map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setExpenseToEdit(null);
+                    reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Update Expense
+                </Button>
+              </div>
+            </form>
+          )}
         </Modal>
 
         {/* Delete Confirmation Modal */}
