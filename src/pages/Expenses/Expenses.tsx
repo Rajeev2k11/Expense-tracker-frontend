@@ -6,6 +6,8 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useForm } from 'react-hook-form';
 import { Plus, Search, Download, Trash2, Calendar, DollarSign, Tag, Edit2, MoreVertical } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { fetchCategories } from '../../features/categories/categorySlice';
 
 export type Expense = {
   id: string;
@@ -18,6 +20,9 @@ export type Expense = {
 };
 
 const ExpensesPage: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { categories: apiCategories, loading: categoriesLoading } = useAppSelector((state) => state.categories);
+  
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -31,7 +36,9 @@ const ExpensesPage: React.FC = () => {
   const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
   const { register, handleSubmit, reset, setValue } = useForm();
 
-  const categories = ['All', 'Marketing', 'Meals', 'Travel', 'Software', 'Office', 'Other'];
+  // Merge API categories with 'All' filter option
+  const categories = ['All', ...(apiCategories || []).map(cat => cat.name)];
+  const categoryOptions = (apiCategories || []).map(cat => cat.name);
 
   // Load expenses from localStorage or use demo data
   const loadExpenses = () => {
@@ -84,6 +91,13 @@ const ExpensesPage: React.FC = () => {
   useEffect(() => {
     loadExpenses();
   }, []);
+
+  // Fetch categories when add or edit modal opens
+  useEffect(() => {
+    if (showAddModal || showEditModal) {
+      dispatch(fetchCategories());
+    }
+  }, [showAddModal, showEditModal, dispatch]);
 
   // Save expenses to localStorage whenever expenses change
   useEffect(() => {
@@ -584,10 +598,11 @@ const ExpensesPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                 <select
                   {...register('category', { required: true })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  disabled={categoriesLoading}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select category</option>
-                  {categories.filter(cat => cat !== 'All').map(category => (
+                  <option value="">{categoriesLoading ? 'Loading categories...' : 'Select category'}</option>
+                  {!categoriesLoading && categoryOptions.map(category => (
                     <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
@@ -660,10 +675,11 @@ const ExpensesPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                   <select
                     {...register('category', { required: true })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                    disabled={categoriesLoading}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed"
                   >
-                    <option value="">Select category</option>
-                    {categories.filter(cat => cat !== 'All').map(category => (
+                    <option value="">{categoriesLoading ? 'Loading categories...' : 'Select category'}</option>
+                    {!categoriesLoading && categoryOptions.map(category => (
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
