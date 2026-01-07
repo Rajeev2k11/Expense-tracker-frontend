@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { v4 as uid } from 'uuid';
 import type { User, Role, ProfileFormData } from '../types';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { performLogin, verifyLoginMfa as verifyLoginMfaThunk } from '../features/auth/loginSlice';
+import { performLogin, verifyLoginMfa as verifyLoginMfaThunk, verifyLoginMfaPasskey as verifyLoginMfaPasskeyThunk } from '../features/auth/loginSlice';
 
 // LocalStorage keys
 const USERS_KEY = 'mock_users';
@@ -35,6 +35,7 @@ interface AuthContextValue {
     challengeId?: string;
   }>;
   verifyLoginMfa: (challengeId: string, totpCode: string) => Promise<void>;
+  verifyLoginMfaPasskey: (challengeId: string, credential: Record<string, unknown>) => Promise<void>;
   signup: (data: { fullName: string; email: string; password: string; role: Role }) => Promise<void>;
   logout: () => void;
   isAdmin: () => boolean;
@@ -103,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (needsMfa) {
         return {
           requiresMfa: true,
-          mfaMethod: result.mfaMethod ?? 'TOTP',
+          mfaMethod: result.mfa_method ?? 'TOTP',
           challengeId: result.challengeId ?? undefined,
         };
       }
@@ -129,6 +130,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('token', response.token);
     } catch (error) {
       console.error('MFA verification error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyLoginMfaPasskey = async (challengeId: string, credential: Record<string, unknown>) => {
+    setLoading(true);
+    try {
+      const response = await dispatch(
+        verifyLoginMfaPasskeyThunk({ challengeId, credential })
+      ).unwrap();
+
+      const verifiedUser = response.user as User;
+      commit(verifiedUser);
+      localStorage.setItem('token', response.token);
+    } catch (error) {
+      console.error('Passkey verification error:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -210,6 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading, 
       login, 
       verifyLoginMfa,
+      verifyLoginMfaPasskey,
       signup, 
       logout, 
       isAdmin, 

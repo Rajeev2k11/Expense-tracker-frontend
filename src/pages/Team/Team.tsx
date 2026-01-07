@@ -6,10 +6,21 @@ import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import api from '../../services/api';
 import type { Team, User, Role } from '../../types';
-import { Users, Plus, Search, Mail, UserPlus, Settings, Download, Trash2, Edit } from 'lucide-react';
+import { Users, Plus, Search, Mail, UserPlus, Settings, Download, Trash2, Edit, FolderPlus, Tag } from 'lucide-react';
+
+// Category type definition
+export type Category = {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 const TeamPage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
@@ -17,6 +28,7 @@ const TeamPage: React.FC = () => {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
@@ -27,6 +39,13 @@ const TeamPage: React.FC = () => {
     department: '',
     color: '#3B82F6',
     monthlyBudget: ''
+  });
+
+  // New category form state
+  const [newCategory, setNewCategory] = useState({
+    name: '',
+    description: '',
+    color: '#3B82F6'
   });
 
   // Add member form state
@@ -40,6 +59,7 @@ const TeamPage: React.FC = () => {
 
   useEffect(() => {
     loadTeams();
+    loadCategories();
   }, []);
 
   const loadTeams = async () => {
@@ -48,12 +68,50 @@ const TeamPage: React.FC = () => {
       setTeams(res.data);
     } catch (error) {
       console.error('Failed to load teams:', error);
+      // Fallback to demo data if API fails
+      setTeams(demoTeams);
     } finally {
       setLoading(false);
     }
   };
 
-  // Demo data for teams (replace with actual API data)
+  const loadCategories = async () => {
+    try {
+      // In a real app, this would be an API call
+      // For now, we'll use demo categories
+      const demoCategories: Category[] = [
+        {
+          id: '1',
+          name: 'Development',
+          description: 'Software development and programming tasks',
+          color: '#3B82F6',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: '2',
+          name: 'Marketing',
+          description: 'Marketing campaigns and promotions',
+          color: '#10B981',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: '3',
+          name: 'Design',
+          description: 'UI/UX design and creative work',
+          color: '#8B5CF6',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+      setCategories(demoCategories);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
+
+  // Demo data for teams
   const demoTeams: Team[] = [
     {
       id: '1',
@@ -129,6 +187,20 @@ const TeamPage: React.FC = () => {
     setTeams(prev => [...prev, teamData as Team]);
     setShowCreateTeamModal(false);
     setNewTeam({ name: '', department: '', color: '#3B82F6', monthlyBudget: '' });
+  };
+
+  // Category Management Functions
+  const createCategory = async () => {
+    const categoryData: Category = {
+      ...newCategory,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCategories(prev => [...prev, categoryData]);
+    setShowCreateCategoryModal(false);
+    setNewCategory({ name: '', description: '', color: '#3B82F6' });
   };
 
   const deleteTeam = async (team: Team) => {
@@ -263,7 +335,7 @@ const TeamPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Team Management</h1>
-            <p className="text-gray-600 mt-1">Manage your teams and members</p>
+            <p className="text-gray-600 mt-1">Manage your teams, categories and members</p>
           </div>
           <div className="flex items-center gap-3 mt-4 lg:mt-0">
             <div className="relative group">
@@ -287,6 +359,14 @@ const TeamPage: React.FC = () => {
               </div>
             </div>
             <Button 
+              onClick={() => setShowCreateCategoryModal(true)}
+              variant="secondary"
+              size="sm"
+            >
+              <FolderPlus className="w-4 h-4 mr-2" />
+              Create Category
+            </Button>
+            <Button 
               onClick={() => setShowAddMemberModal(true)}
               size="sm"
             >
@@ -304,7 +384,7 @@ const TeamPage: React.FC = () => {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card padding="lg" hover={true}>
             <div className="flex items-center justify-between">
               <div>
@@ -352,6 +432,18 @@ const TeamPage: React.FC = () => {
               </div>
             </div>
           </Card>
+
+          <Card padding="lg" hover={true}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Categories</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">{categories.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+                <Tag className="w-6 h-6 text-pink-600" />
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Filters and Search */}
@@ -388,122 +480,182 @@ const TeamPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Teams Grid */}
-        {filteredTeams.length === 0 ? (
-          <Card className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No teams found</h3>
-            <p className="text-gray-600 mb-4">Get started by creating your first team.</p>
-            <Button onClick={() => setShowCreateTeamModal(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Team
+        {/* Categories Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Categories</h2>
+            <Button 
+              onClick={() => setShowCreateCategoryModal(true)}
+              variant="ghost"
+              size="sm"
+            >
+              <FolderPlus className="w-4 h-4 mr-2" />
+              New Category
             </Button>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredTeams.map((team) => (
-              <Card key={team.id} padding="lg" hover={true}>
-                {/* Team Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                      style={{ backgroundColor: team.color }}
-                    >
-                      {getInitials(team.name)}
+          </div>
+          
+          {categories.length === 0 ? (
+            <Card className="text-center py-8">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Tag className="w-6 h-6 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No categories yet</h3>
+              <p className="text-gray-600 mb-4">Create your first category to organize teams.</p>
+              <Button onClick={() => setShowCreateCategoryModal(true)} size="sm">
+                <FolderPlus className="w-4 h-4 mr-2" />
+                Create Category
+              </Button>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {categories.map((category) => (
+                <Card key={category.id} padding="lg" hover={true}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: category.color }}
+                      >
+                        <Tag className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{category.name}</h3>
+                        <p className="text-sm text-gray-500">{category.description}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{team.name}</h3>
-                      <p className="text-sm text-gray-600">{team.department}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => {
-                        setTeamToDelete(team);
-                        setShowDeleteModal(true);
-                      }}
-                      className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
+                    <button className="p-1 text-gray-400 hover:text-gray-600">
+                      <Edit className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
+                  <div className="text-xs text-gray-500">
+                    Created: {new Date(category.createdAt).toLocaleDateString()}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
 
-                {/* Team Stats */}
-                <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-gray-900">{team.members.length}</p>
-                    <p className="text-xs text-gray-600">Members</p>
+        {/* Teams Section */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Teams</h2>
+          
+          {filteredTeams.length === 0 ? (
+            <Card className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No teams found</h3>
+              <p className="text-gray-600 mb-4">Get started by creating your first team.</p>
+              <Button onClick={() => setShowCreateTeamModal(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Team
+              </Button>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredTeams.map((team) => (
+                <Card key={team.id} padding="lg" hover={true}>
+                  {/* Team Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                        style={{ backgroundColor: team.color }}
+                      >
+                        {getInitials(team.name)}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                        <p className="text-sm text-gray-600">{team.department}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => {
+                          setTeamToDelete(team);
+                          setShowDeleteModal(true);
+                        }}
+                        className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-gray-900">{team.activeCount}</p>
-                    <p className="text-xs text-gray-600">Active</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-gray-900">
-                      ${team.monthlyBudget?.toLocaleString() || '0'}
-                    </p>
-                    <p className="text-xs text-gray-600">Budget</p>
-                  </div>
-                </div>
 
-                {/* Team Members */}
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">Team Members</h4>
-                  <div className="space-y-2">
-                    {team.members.slice(0, 3).map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-700">
-                            {getInitials(member.fullName)}
+                  {/* Team Stats */}
+                  <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900">{team.members.length}</p>
+                      <p className="text-xs text-gray-600">Members</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900">{team.activeCount}</p>
+                      <p className="text-xs text-gray-600">Active</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900">
+                        ${team.monthlyBudget?.toLocaleString() || '0'}
+                      </p>
+                      <p className="text-xs text-gray-600">Budget</p>
+                    </div>
+                  </div>
+
+                  {/* Team Members */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Team Members</h4>
+                    <div className="space-y-2">
+                      {team.members.slice(0, 3).map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-700">
+                              {getInitials(member.fullName)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{member.fullName}</p>
+                              <Badge 
+                                status={getRoleColor(member.role) as 'default'} 
+                                size="sm"
+                                className="mt-1"
+                              >
+                                {member.role}
+                              </Badge>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{member.fullName}</p>
-                            <Badge 
-                              status={getRoleColor(member.role) as 'default'} 
-                              size="sm"
-                              className="mt-1"
-                            >
-                              {member.role}
-                            </Badge>
+                          <div className="text-xs text-gray-500">
+                            {member.email}
                           </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {member.email}
+                      ))}
+                      {team.members.length > 3 && (
+                        <div className="text-center">
+                          <button className="text-sm text-blue-600 hover:text-blue-700">
+                            + {team.members.length - 3} more members
+                          </button>
                         </div>
-                      </div>
-                    ))}
-                    {team.members.length > 3 && (
-                      <div className="text-center">
-                        <button className="text-sm text-blue-600 hover:text-blue-700">
-                          + {team.members.length - 3} more members
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Team Actions */}
-                <div className="flex gap-2 pt-4 border-t border-gray-200">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => viewTeamDetails(team)}
-                  >
-                    View Details
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Mail className="w-4 h-4" />
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+                  {/* Team Actions */}
+                  <div className="flex gap-2 pt-4 border-t border-gray-200">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => viewTeamDetails(team)}
+                    >
+                      View Details
+                    </Button>
+                    <Button variant="ghost" size="sm">
+                      <Mail className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Team Details Modal */}
         <Modal
@@ -710,6 +862,67 @@ const TeamPage: React.FC = () => {
               <Button onClick={createTeam} disabled={!newTeam.name || !newTeam.department}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create Team
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Create Category Modal */}
+        <Modal
+          open={showCreateCategoryModal}
+          onClose={() => setShowCreateCategoryModal(false)}
+          title="Create New Category"
+          size="md"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
+              <input
+                type="text"
+                value={newCategory.name}
+                onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400"
+                placeholder="Enter category name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+              <textarea
+                value={newCategory.description}
+                onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400"
+                placeholder="Enter category description"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Category Color</label>
+              <div className="flex gap-2 flex-wrap">
+                {colors.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setNewCategory(prev => ({ ...prev, color }))}
+                    className={`w-8 h-8 rounded-full border-2 ${
+                      newCategory.color === color ? 'border-gray-900' : 'border-gray-300'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="secondary" onClick={() => setShowCreateCategoryModal(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={createCategory} 
+                disabled={!newCategory.name || !newCategory.description}
+              >
+                <FolderPlus className="w-4 h-4 mr-2" />
+                Create Category
               </Button>
             </div>
           </div>

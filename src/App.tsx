@@ -16,6 +16,7 @@ import MFASetup from './pages/MFA/MFASetup.tsx';
 
 import AuthenticatorSetup from './pages/MFA/AuthenticatorSetup.tsx';
 import VerifyMFA from './pages/MFA/VerifyMFA.tsx';
+import PasskeyVerify from './pages/MFA/PasskeyVerify.tsx';
 import MFASuccess from './pages/MFA/MFASuccess.tsx';
 import Passkey from './pages/MFA/Passkey.tsx';
 import AdminDashboard from './pages/Admin/AdminDashboard';
@@ -36,6 +37,7 @@ const App: React.FC = () => {
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/signup" element={<Signup />} />
           <Route path="/mfa/verify-code" element={<VerifyMFA />} />
+          <Route path="/mfa/verify-passkey" element={<PasskeyVerify />} />
           
           {/* Protected Routes */}
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

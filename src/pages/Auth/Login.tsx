@@ -25,6 +25,11 @@ const Login: React.FC = () => {
         return;
       }
 
+      if (result.requiresMfa && result.mfaMethod === 'PASSKEY') {
+        navigate('/mfa/verify-passkey');
+        return;
+      }
+
       navigate('/');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
