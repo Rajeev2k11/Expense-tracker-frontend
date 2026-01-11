@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { v4 as uid } from 'uuid';
 import type { User, Role, ProfileFormData } from '../types';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { performLogin, verifyLoginMfa as verifyLoginMfaThunk } from '../features/auth/loginSlice';
+import { performLogin } from '../features/auth/loginSlice';
 
 // LocalStorage keys
 const USERS_KEY = 'mock_users';
@@ -29,12 +29,7 @@ function setStoredUsers(users: User[]) {
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{
-    requiresMfa: boolean;
-    mfaMethod?: 'TOTP' | 'PASSKEY';
-    challengeId?: string;
-  }>;
-  verifyLoginMfa: (challengeId: string, totpCode: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   signup: (data: { fullName: string; email: string; password: string; role: Role }) => Promise<void>;
   logout: () => void;
   isAdmin: () => boolean;
@@ -90,45 +85,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const result = await dispatch(performLogin({ email, password })).unwrap();
-
-      const needsMfa = Boolean((result.mfaRequired ?? false) || (result.challengeId && !result.token));
-
-      if (result.token && result.user) {
-        commit(result.user);
-        localStorage.setItem('token', result.token);
-        return { requiresMfa: false };
+      const result = await dispatch(performLogin({ email, password }));
+      
+      if (result.meta.requestStatus === 'fulfilled' && result.payload) {
+        const loginResponse = result.payload;
+        const userData = loginResponse.user;
+        const token = loginResponse.token;
+        
+        commit(userData);
+        localStorage.setItem('token', token);
+      } else {
+        throw new Error(reduxError || 'Login failed');
       }
-
-      if (needsMfa) {
-        return {
-          requiresMfa: true,
-          mfaMethod: result.mfaMethod ?? 'TOTP',
-          challengeId: result.challengeId ?? undefined,
-        };
-      }
-
-      throw new Error(reduxError || 'Login failed');
     } catch (error) {
       console.error('Login error:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyLoginMfa = async (challengeId: string, totpCode: string) => {
-    setLoading(true);
-    try {
-      const response = await dispatch(
-        verifyLoginMfaThunk({ challengeId, totpCode })
-      ).unwrap();
-
-      const verifiedUser = response.user as User;
-      commit(verifiedUser);
-      localStorage.setItem('token', response.token);
-    } catch (error) {
-      console.error('MFA verification error:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -209,7 +179,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       loading, 
       login, 
-      verifyLoginMfa,
       signup, 
       logout, 
       isAdmin, 
