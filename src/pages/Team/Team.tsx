@@ -11,20 +11,20 @@ import {
   Download, Trash2, Edit, FolderPlus, Tag, MoreVertical,
   Calendar
 } from 'lucide-react';
-
-// Category type definition
-export type Category = {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-  createdAt: string;
-  updatedAt: string;
-};
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { 
+  fetchCategories, 
+  createCategory as createCategoryAction, 
+  updateCategory as updateCategoryAction, 
+  deleteCategory as deleteCategoryAction 
+} from '../../features/categories/categorySlice';
+import type { Category } from '../../features/categories/categoryApi';
 
 const TeamPage: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { categories, loading: categoriesLoading, creating: creatingCategory, updating: updatingCategory, deleting: deletingCategory } = useAppSelector((state) => state.categories);
+  
   const [teams, setTeams] = useState<Team[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
@@ -55,8 +55,6 @@ const TeamPage: React.FC = () => {
     description: '',
     color: '#3B82F6'
   });
-  const [creatingCategory, setCreatingCategory] = useState(false);
-  const [updatingCategory, setUpdatingCategory] = useState(false);
 
   // Add member form state
   const [newMember, setNewMember] = useState({
@@ -72,8 +70,8 @@ const TeamPage: React.FC = () => {
 
   useEffect(() => {
     loadTeams();
-    loadCategories();
-  }, []);
+    dispatch(fetchCategories());
+  }, [dispatch]);
 
   const loadTeams = async () => {
     try {
@@ -88,44 +86,33 @@ const TeamPage: React.FC = () => {
     }
   };
 
-  const loadCategories = async () => {
-    try {
-      const res = await api.get('/v1/categories');
-      // Normalize categories to ensure we have an `id` (fallback to `_id`)
-      const normalized = (res.data || []).map((c: any) => ({ ...(c || {}), id: c.id || c._id }));
-      setCategories(normalized);
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-      // Fallback to demo categories if API fails
-      const demoCategories: Category[] = [
-        {
-          id: '1',
-          name: 'Development',
-          description: 'Software development and programming tasks',
-          color: '#3B82F6',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Marketing',
-          description: 'Marketing campaigns and promotions',
-          color: '#10B981',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: '3',
-          name: 'Design',
-          description: 'UI/UX design and creative work',
-          color: '#8B5CF6',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      setCategories(demoCategories);
+  // Demo categories removed - now using Redux state
+  const demoCategories: Category[] = [
+    {
+      id: '1',
+      name: 'Development',
+      description: 'Software development and programming tasks',
+      color: '#3B82F6',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: '2',
+      name: 'Marketing',
+      description: 'Marketing campaigns and promotions',
+      color: '#10B981',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: '3',
+      name: 'Design',
+      description: 'UI/UX design and creative work',
+      color: '#8B5CF6',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
-  };
+  ];
 
   // Demo data for teams
   const demoTeams: Team[] = [
@@ -209,29 +196,17 @@ const TeamPage: React.FC = () => {
   const createCategory = async () => {
     if (!categoryForm.name || !categoryForm.description) return;
     try {
-      setCreatingCategory(true);
-      const res = await api.post('/v1/categories', {
+      await dispatch(createCategoryAction({
         name: categoryForm.name,
         description: categoryForm.description,
         color: categoryForm.color
-      });
-
-      // If API returns the created category, append it; otherwise reload list
-      if (res && res.data) {
-        const created = { ...(res.data || {}), id: res.data.id || res.data._id };
-        setCategories(prev => [...prev, created]);
-      } else {
-        await loadCategories();
-      }
+      })).unwrap();
 
       setShowCreateCategoryModal(false);
       setCategoryForm({ name: '', description: '', color: '#3B82F6' });
     } catch (err) {
       console.error('Failed to create category:', err);
-      const errorMsg = (err as any)?.response?.data?.message || (err as any)?.response?.data?.error || (err as any)?.message || 'Failed to create category';
-      alert(errorMsg);
-    } finally {
-      setCreatingCategory(false);
+      alert(err as string);
     }
   };
 
@@ -243,22 +218,14 @@ const TeamPage: React.FC = () => {
       return;
     }
     try {
-      setUpdatingCategory(true);
-      const res = await api.put(`/v1/categories/${idToUse}`, {
-        name: categoryForm.name,
-        description: categoryForm.description,
-        color: categoryForm.color
-      });
-
-      // Update the category in the list
-      if (res && res.data) {
-        const updated = { ...(res.data || {}), id: res.data.id || res.data._id };
-        setCategories(prev => prev.map(cat => 
-          ((cat as any).id === updated.id || (cat as any)._id === updated.id) ? { ...updated, updatedAt: new Date().toISOString() } : cat
-        ));
-      } else {
-        await loadCategories();
-      }
+      await dispatch(updateCategoryAction({
+        id: idToUse,
+        payload: {
+          name: categoryForm.name,
+          description: categoryForm.description,
+          color: categoryForm.color
+        }
+      })).unwrap();
 
       setShowEditCategoryModal(false);
       setSelectedCategory(null);
@@ -266,10 +233,7 @@ const TeamPage: React.FC = () => {
       setShowCategoryMenu(null);
     } catch (err) {
       console.error('Failed to update category:', err);
-      const errorMsg = (err as any)?.response?.data?.message || (err as any)?.response?.data?.error || (err as any)?.message || 'Failed to update category';
-      alert(errorMsg);
-    } finally {
-      setUpdatingCategory(false);
+      alert(err as string);
     }
   };
 
@@ -277,15 +241,13 @@ const TeamPage: React.FC = () => {
     try {
       const idToUse = (category as any).id || (category as any)._id;
       if (!idToUse) throw new Error('Category id missing');
-      await api.delete(`/v1/categories/${idToUse}`);
-      setCategories(prev => prev.filter(cat => (cat.id || (cat as any)._id) !== idToUse));
+      await dispatch(deleteCategoryAction(idToUse)).unwrap();
       setShowDeleteModal(false);
       setCategoryToDelete(null);
       setShowCategoryMenu(null);
     } catch (err) {
       console.error('Failed to delete category:', err);
-      const errorMsg = (err as any)?.response?.data?.message || (err as any)?.message || 'Failed to delete category';
-      alert(errorMsg);
+      alert(err as string);
     }
   };
 
