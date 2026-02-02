@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { v4 as uid } from 'uuid';
 import type { User, Role, ProfileFormData } from '../types';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { performLogin, verifyLoginMfa as verifyLoginMfaThunk, verifyLoginMfaPasskey as verifyLoginMfaPasskeyThunk } from '../features/auth/loginSlice';
+import { performLogin, verifyLoginMfa as verifyLoginMfaThunk, verifyLoginMfa as verifyLoginMfaPasskeyThunk } from '../features/auth/loginSlice';
 
 // LocalStorage keys
 const USERS_KEY = 'mock_users';
@@ -34,8 +34,7 @@ interface AuthContextValue {
     mfaMethod?: 'TOTP' | 'PASSKEY';
     challengeId?: string;
   }>;
-  verifyLoginMfa: (challengeId: string, totpCode: string) => Promise<void>;
-  verifyLoginMfaPasskey: (challengeId: string, credential: Record<string, unknown>) => Promise<void>;
+  verifyLoginMfa: (challengeId: string, totpCode?: string, credential?: Record<string, unknown>) => Promise<void>;
   signup: (data: { fullName: string; email: string; password: string; role: Role }) => Promise<void>;
   logout: () => void;
   isAdmin: () => boolean;

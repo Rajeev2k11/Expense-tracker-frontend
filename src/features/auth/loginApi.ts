@@ -17,7 +17,8 @@ export interface LoginResponse {
 
 export interface VerifyLoginMfaRequest {
   challengeId: string;
-  totpCode: string;
+  totpCode?: string;
+  credential?: Record<string, unknown>;
 }
 
 export interface VerifyLoginMfaPasskeyRequest {

@@ -13,7 +13,7 @@ import { clearError } from '../../features/auth/loginSlice';
  * 1. User arrives here after login with email/password when mfaMethod is PASSKEY
  * 2. The challengeId is stored in Redux from the login response
  * 3. When user clicks "Use Passkey":
- *    - Backend is called to get WebAuthn challenge options
+ *    - Uses challengeId as WebAuthn challenge
  *    - Converts base64url challenge to ArrayBuffer
  *    - Calls navigator.credentials.get() with the options
  *    - User authenticates using their device's biometric or security key
@@ -78,7 +78,7 @@ const base64urlToArrayBuffer = (base64url: string): ArrayBuffer => {
 const PasskeyVerify: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { verifyLoginMfaPasskey } = useAuth();
+  const { verifyLoginMfa } = useAuth();
 
   const { challengeId, mfaMethod, loading, error } = useAppSelector((state) => state.auth);
 
@@ -128,8 +128,10 @@ const PasskeyVerify: React.FC = () => {
       const response = credential.response as AuthenticatorAssertionResponse;
 
       // Prepare credential data for backend
+      // Note: The backend expects credential.id to be base64url format
+      // and will convert it to base64 for comparison with stored credentialID
       const credentialData = {
-        id: credential.id,
+        id: credential.id, // This is already base64url from the browser
         rawId: arrayBufferToBase64url(credential.rawId),
         type: credential.type,
         response: {
@@ -142,8 +144,8 @@ const PasskeyVerify: React.FC = () => {
 
       setAuthenticated(true);
 
-      // Verify with backend
-      await verifyLoginMfaPasskey(challengeId, credentialData);
+      // Verify with backend using verify-login-mfa endpoint (for login authentication)
+      await verifyLoginMfa(challengeId, undefined, credentialData);
 
       // Navigate to dashboard on success
       navigate('/');

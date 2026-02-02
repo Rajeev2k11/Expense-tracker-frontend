@@ -5,7 +5,6 @@ import type {
   LoginRequest,
   LoginResponse,
   VerifyLoginMfaRequest,
-  VerifyLoginMfaPasskeyRequest,
   VerifyLoginMfaResponse,
 } from './loginApi';
 import type { User } from '../../types';
@@ -51,6 +50,7 @@ export const performLogin = createAsyncThunk<
   }
 );
 
+// MFA verification for login (uses /verify-login-mfa endpoint)
 export const verifyLoginMfa = createAsyncThunk<
   VerifyLoginMfaResponse,
   VerifyLoginMfaRequest,
@@ -65,25 +65,6 @@ export const verifyLoginMfa = createAsyncThunk<
       const err = error as { response?: { data?: { message?: string } } };
       return rejectWithValue(
         err.response?.data?.message || 'Failed to verify login MFA'
-      );
-    }
-  }
-);
-
-export const verifyLoginMfaPasskey = createAsyncThunk<
-  VerifyLoginMfaResponse,
-  VerifyLoginMfaPasskeyRequest,
-  { rejectValue: string }
->(
-  'auth/verifyLoginMfaPasskey',
-  async (data, { rejectWithValue }) => {
-    try {
-      const response = await loginApi.verifyLoginMfaPasskey(data);
-      return response;
-    } catch (error) {
-      const err = error as { response?: { data?: { message?: string } } };
-      return rejectWithValue(
-        err.response?.data?.message || 'Failed to verify passkey login'
       );
     }
   }
@@ -163,27 +144,7 @@ const loginSlice = createSlice({
       })
       .addCase(verifyLoginMfa.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || 'Failed to verify login MFA';
-        state.success = false;
-      })
-      .addCase(verifyLoginMfaPasskey.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = false;
-      })
-      .addCase(verifyLoginMfaPasskey.fulfilled, (state, action: PayloadAction<VerifyLoginMfaResponse>) => {
-        state.loading = false;
-        state.success = true;
-        state.user = action.payload.user as User;
-        state.token = action.payload.token;
-        state.challengeId = null;
-        state.mfaMethod = null;
-        state.mfaRequired = false;
-        state.error = null;
-      })
-      .addCase(verifyLoginMfaPasskey.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || 'Failed to verify passkey login';
+        state.error = action.payload || 'Failed to verify MFA';
         state.success = false;
       });
   },
