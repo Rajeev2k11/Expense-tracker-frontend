@@ -39,6 +39,26 @@ export const performLogin = createAsyncThunk<
   }
 );
 
+// MFA verification for login (uses /verify-login-mfa endpoint)
+export const verifyLoginMfa = createAsyncThunk<
+  VerifyLoginMfaResponse,
+  VerifyLoginMfaRequest,
+  { rejectValue: string }
+>(
+  'auth/verifyLoginMfa',
+  async (data, { rejectWithValue }) => {
+    try {
+      const response = await loginApi.verifyLoginMfa(data);
+      return response;
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to verify login MFA'
+      );
+    }
+  }
+);
+
 const loginSlice = createSlice({
   name: 'auth',
   initialState,
@@ -63,6 +83,40 @@ const loginSlice = createSlice({
       })
       .addCase(performLogin.fulfilled, (state, action: PayloadAction<LoginResponse>) => {
         state.loading = false;
+        state.error = null;
+
+        const { token, user, challengeId, mfa_method, mfaRequired } = action.payload;
+        const needsMfa = Boolean((mfaRequired ?? false) || (challengeId && !token));
+
+        state.challengeId = challengeId ?? null;
+        state.mfaMethod = mfa_method ?? null;
+        state.mfaRequired = needsMfa;
+
+        if (token && user) {
+          state.success = true;
+          state.user = user;
+          state.token = token;
+        } else {
+          state.success = false;
+          state.user = null;
+          state.token = null;
+        }
+      })
+      .addCase(performLogin.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to login';
+        state.success = false;
+        state.challengeId = null;
+        state.mfaMethod = null;
+        state.mfaRequired = false;
+      })
+      .addCase(verifyLoginMfa.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.success = false;
+      })
+      .addCase(verifyLoginMfa.fulfilled, (state, action: PayloadAction<VerifyLoginMfaResponse>) => {
+        state.loading = false;
         state.success = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
@@ -70,7 +124,7 @@ const loginSlice = createSlice({
       })
       .addCase(performLogin.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || 'Failed to login';
+        state.error = action.payload || 'Failed to verify MFA';
         state.success = false;
       });
   },

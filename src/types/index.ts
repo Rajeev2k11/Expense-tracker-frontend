@@ -95,3 +95,50 @@ export interface SecuritySettings {
   loginAlerts: boolean;
   sessionTimeout: number;
 }
+
+// User Profile API Types
+export interface TeamLeader {
+  _id: string;
+  name: string;
+  username: string;
+  email: string;
+  role: string;
+}
+
+export interface TeamMember {
+  _id?: string;
+  name?: string;
+  username?: string;
+  email?: string;
+  role?: string;
+}
+
+export interface UserProfileTeam {
+  id: string;
+  name: string;
+  description?: string;
+  team_leader?: TeamLeader;
+  members?: TeamMember[];
+  monthly_budget?: number;
+  monthly_budget_remaining?: number;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  role: string;
+  status: string;
+  member_type: string;
+}
+
+export interface ReadUserProfileResponse {
+  user: UserProfile;
+  defaultTeam: UserProfileTeam | null;
+  activeTeam: UserProfileTeam | null;
+  allTeams: Array<{
+    id: string;
+    name: string;
+  }>;
+}

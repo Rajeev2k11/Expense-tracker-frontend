@@ -5,28 +5,40 @@ import SpendingLine from '../../components/charts/SpendingLine';
 import CategoryDonut from '../../components/charts/CategoryDonut';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import type { DashboardStats } from '../../types';
+import { userApi } from '../../features/users/userApi';
+import type { DashboardStats, ReadUserProfileResponse } from '../../types';
 
 const DashboardPage: React.FC = () => {
   const { isAdmin, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [spending, setSpending] = useState<{ date: string; value: number }[]>([]);
   const [categories, setCategories] = useState<{ name: string; value: number }[]>([]);
+  const [userProfile, setUserProfile] = useState<ReadUserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [statsRes, spendingRes, categoriesRes] = await Promise.all([
+        const [statsRes, spendingRes, categoriesRes, profileRes] = await Promise.all([
           api.get('/dashboard/stats'),
           api.get('/dashboard/spending'),
-          api.get('/dashboard/categories')
+          api.get('/dashboard/categories'),
+          userApi.readUserProfile()
         ]);
 
         setStats(statsRes.data);
         setSpending(Array.isArray(spendingRes.data) ? spendingRes.data : []);
         setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
+        setUserProfile(profileRes);
+        
+        // Log user profile data for debugging
+        if (profileRes) {
+          console.log('User Profile:', profileRes.user);
+          console.log('Default Team:', profileRes.defaultTeam);
+          console.log('Active Team:', profileRes.activeTeam);
+          console.log('All Teams:', profileRes.allTeams);
+        }
       } catch (error) {
         console.warn('Dashboard data fetch failed', error);
       } finally {
@@ -51,8 +63,15 @@ const DashboardPage: React.FC = () => {
     <Layout>
       {/* Welcome Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.fullName}</h1>
-        <p className="text-gray-600 mt-1">Here's your expense overview</p>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Welcome back, {userProfile?.user?.name || user?.fullName || 'User'}
+        </h1>
+        <p className="text-gray-600 mt-1">
+          {userProfile?.activeTeam 
+            ? `${userProfile.activeTeam.name} • Here's your expense overview`
+            : "Here's your expense overview"
+          }
+        </p>
       </div>
 
       {/* Stats Cards */}

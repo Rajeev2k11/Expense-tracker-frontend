@@ -4,20 +4,26 @@ import { ArrowLeft, Shield } from 'lucide-react';
 
 const VerifyMFA: React.FC = () => {
   const navigate = useNavigate();
-  const [code, setCode] = useState('');
+  const dispatch = useAppDispatch();
+  const { verifyLoginMfa } = useAuth();
+
+  const { challengeId, mfaMethod, loading, error } = useAppSelector((state) => state.auth);
+
+  const [totpCode, setCode] = useState('');
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
     setCode(value);
   };
 
-  const handleVerify = () => {
-    // Here you would typically verify the code with your backend
-    console.log('Verifying code:', code);
-    
-    // For demo purposes, navigate to dashboard after "verification"
-    // In real app, you'd have proper verification logic
-    navigate('/');
+  const handleVerify = async () => {
+    if (!challengeId) return;
+    try {
+      await verifyLoginMfa(challengeId, totpCode);
+      navigate('/');
+    } catch {
+      // Errors are handled via Redux state and surfaced below
+    }
   };
 
   return (
@@ -51,7 +57,7 @@ const VerifyMFA: React.FC = () => {
             <input
               type="text"
               id="mfaCode"
-              value={code}
+              value={totpCode}
               onChange={handleCodeChange}
               placeholder="Enter 6-digit code"
               className="w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg font-mono tracking-widest placeholder-gray-400"
@@ -61,9 +67,9 @@ const VerifyMFA: React.FC = () => {
 
           <button
             onClick={handleVerify}
-            disabled={code.length !== 6}
+            disabled={totpCode.length !== 6 || loading || !challengeId}
             className={`w-full py-3 px-4 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${
-              code.length === 6
+              totpCode.length === 6 && !loading && challengeId
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}

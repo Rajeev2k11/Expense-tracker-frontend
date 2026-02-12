@@ -16,9 +16,25 @@ const Login: React.FC = () => {
   const onSubmit = async (d: F) => {
     if (!d.email) return setError('email', { type: 'required', message: 'Email required' });
     if (!d.password) return setError('password', { type: 'required', message: 'Password required' });
-    
-    await login(d.email, d.password);
-    navigate('/');
+
+    try {
+      const result = await login(d.email, d.password);
+
+      if (result.requiresMfa && result.mfaMethod === 'TOTP') {
+        navigate('/mfa/verify-code');
+        return;
+      }
+
+      if (result.requiresMfa && result.mfaMethod === 'PASSKEY') {
+        navigate('/mfa/verify-passkey');
+        return;
+      }
+
+      navigate('/');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Login failed';
+      setError('root', { type: 'manual', message });
+    }
   };
 
   return (

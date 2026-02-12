@@ -16,6 +16,7 @@ import MFASetup from './pages/MFA/MFASetup.tsx';
 
 import AuthenticatorSetup from './pages/MFA/AuthenticatorSetup.tsx';
 import VerifyMFA from './pages/MFA/VerifyMFA.tsx';
+import PasskeyVerify from './pages/MFA/PasskeyVerify.tsx';
 import MFASuccess from './pages/MFA/MFASuccess.tsx';
 import Passkey from './pages/MFA/Passkey.tsx';
 import AdminDashboard from './pages/Admin/AdminDashboard';
@@ -36,6 +37,7 @@ const App: React.FC = () => {
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/signup" element={<Signup />} />
           <Route path="/mfa/verify-code" element={<VerifyMFA />} />
+          <Route path="/mfa/verify-passkey" element={<PasskeyVerify />} />
           
           {/* Protected Routes */}
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -45,11 +47,11 @@ const App: React.FC = () => {
           <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/set-password" element={<ProtectedRoute><SetPassword /></ProtectedRoute>} />
-          <Route path="/mfa/setup" element={<ProtectedRoute><MFASetup /></ProtectedRoute>} />
-          <Route path="/mfa/authenticator-setup" element={<ProtectedRoute><AuthenticatorSetup /></ProtectedRoute>} />
-          <Route path="/mfa/passkey" element={<ProtectedRoute><Passkey /></ProtectedRoute>} />
-          <Route path="/mfa/success" element={<ProtectedRoute><MFASuccess /></ProtectedRoute>} />
+          <Route path="/set-password" element={<SetPassword />} />
+          <Route path="/mfa/setup" element={<MFASetup />} />
+          <Route path="/mfa/authenticator-setup" element={<AuthenticatorSetup />} />
+          <Route path="/mfa/passkey" element={<Passkey />} />
+          <Route path="/mfa/success" element={<MFASuccess />} />
           
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
