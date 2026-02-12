@@ -20,10 +20,7 @@ const AuthenticatorSetup: React.FC = () => {
   const secretKey = secret || '';
   const qrCodeValue = otpAuthUrl || '';
 
-  // Navigate to success page after successful MFA verification.
-  // We intentionally DO NOT use `success` here because that flag is also used
-  // for password setup, which would cause an immediate redirect when user comes
-  // from the Set Password flow.
+  // Navigate to success page after successful verification
   useEffect(() => {
     if (successPasskey) {
       setTimeout(() => {
@@ -51,6 +48,12 @@ const AuthenticatorSetup: React.FC = () => {
       }
     }
   };
+
+    useEffect(() => {
+      if (success) {
+        navigate('/mfa/success');
+      }
+    }, [success, navigate]);
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);

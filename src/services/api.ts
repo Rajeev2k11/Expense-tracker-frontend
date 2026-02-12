@@ -16,7 +16,6 @@ api.interceptors.request.use(
       '/v1/users/setup-password',
       '/v1/users/select-mfa-method',
       '/v1/users/verify-mfa',
-      '/v1/users/verify-login-mfa',
       '/v1/users/signup-admin'
     ];
     
