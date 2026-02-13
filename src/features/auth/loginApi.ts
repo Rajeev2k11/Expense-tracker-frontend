@@ -30,8 +30,6 @@ export interface VerifyLoginMfaResponse {
   message: string;
   token: string;
   user: User;
-  token: string;
-  message: string;
 }
 
 export const loginApi = {

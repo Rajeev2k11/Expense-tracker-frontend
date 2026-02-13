@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield } from 'lucide-react';
+import { ArrowLeft, Shield, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { clearError } from '../../features/auth/loginSlice';
 
 const VerifyMFA: React.FC = () => {
   const navigate = useNavigate();
@@ -11,9 +14,19 @@ const VerifyMFA: React.FC = () => {
 
   const [totpCode, setCode] = useState('');
 
+  useEffect(() => {
+    if (!challengeId || (mfaMethod && mfaMethod !== 'TOTP')) {
+      navigate('/auth/login', { replace: true });
+    }
+  }, [challengeId, mfaMethod, navigate]);
+
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
     setCode(value);
+
+    if (error) {
+      dispatch(clearError());
+    }
   };
 
   const handleVerify = async () => {
@@ -62,8 +75,19 @@ const VerifyMFA: React.FC = () => {
               placeholder="Enter 6-digit code"
               className="w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg font-mono tracking-widest placeholder-gray-400"
               maxLength={6}
+              disabled={loading}
             />
           </div>
+
+          {error && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-left">
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5" />
+              <div>
+                <p className="text-sm text-red-700 font-medium">Verification failed</p>
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleVerify}
@@ -74,7 +98,7 @@ const VerifyMFA: React.FC = () => {
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            Verify & Login
+            {loading ? 'Verifying...' : 'Verify & Login'}
           </button>
         </div>
 

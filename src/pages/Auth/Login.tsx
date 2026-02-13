@@ -67,6 +67,10 @@ const Login: React.FC = () => {
           />
           {errors.password && <p className="text-red-500 text-xs">{errors.password.message}</p>}
 
+          {errors.root && (
+            <p className="text-red-500 text-xs text-center">{errors.root.message}</p>
+          )}
+
           <button 
             type="submit"
             disabled={isSubmitting}

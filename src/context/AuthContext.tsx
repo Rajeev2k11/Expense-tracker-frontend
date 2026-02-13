@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { v4 as uid } from 'uuid';
 import type { User, Role, ProfileFormData } from '../types';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { performLogin } from '../features/auth/loginSlice';
+import { performLogin, verifyLoginMfa as verifyLoginMfaThunk } from '../features/auth/loginSlice';
 
 // LocalStorage keys
 const USERS_KEY = 'mock_users';
@@ -107,6 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           challengeId: result.challengeId ?? undefined,
         };
       }
+
+      throw new Error(reduxError || 'Login failed');
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -207,6 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       loading, 
       login, 
+      verifyLoginMfa,
       signup, 
       logout, 
       isAdmin, 
