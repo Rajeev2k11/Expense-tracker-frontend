@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Layout from '../../components/layout/Layout';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { sendInvite, resetInvite } from '../../features/invite/inviteSlice';
