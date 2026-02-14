@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { v4 as uid } from 'uuid';
-import type { User, Role, ProfileFormData } from '../types';
+import type { User, Role, ProfileFormData, TeamWithDetails } from '../types';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { performLogin, verifyLoginMfa as verifyLoginMfaThunk } from '../features/auth/loginSlice';
+import { userApi, type UserTeamOption } from '../features/users/userApi';
+import { teamApi } from '../features/teams/teamApi';
 
 // LocalStorage keys
 const USERS_KEY = 'mock_users';
@@ -28,6 +30,15 @@ function setStoredUsers(users: User[]) {
 
 interface AuthContextValue {
   user: User | null;
+  userTeams: UserTeamOption[];
+  defaultTeamId: string | null;
+  activeTeamId: string | null;
+  activeTeam: TeamWithDetails | null;
+  teamContextLoading: boolean;
+  teamSwitching: boolean;
+  switchTeam: (teamId: string) => Promise<void>;
+  setDefaultTeam: (teamId: string) => Promise<void>;
+  refreshTeamContext: (preferredTeamId?: string) => Promise<void>;
   loading: boolean;
   login: (email: string, password: string) => Promise<{
     requiresMfa: boolean;
@@ -54,6 +65,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const raw = localStorage.getItem('user');
     return raw ? (JSON.parse(raw) as User) : null;
   });
+  const [userTeams, setUserTeams] = useState<UserTeamOption[]>([]);
+  const [defaultTeamId, setDefaultTeamId] = useState<string | null>(null);
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [activeTeam, setActiveTeam] = useState<TeamWithDetails | null>(null);
+  const [teamContextLoading, setTeamContextLoading] = useState(false);
+  const [teamSwitching, setTeamSwitching] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -76,8 +93,103 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('activeTeamId');
+      setUserTeams([]);
+      setDefaultTeamId(null);
+      setActiveTeamId(null);
+      setActiveTeam(null);
     }
   };
+
+  const resolveTeamId = (team: { id?: string; _id?: string } | null | undefined): string => {
+    return String(team?.id ?? team?._id ?? '');
+  };
+
+  const refreshTeamContext = useCallback(async (preferredTeamId?: string) => {
+    if (!user) {
+      setUserTeams([]);
+      setActiveTeamId(null);
+      setActiveTeam(null);
+      return;
+    }
+
+    setTeamContextLoading(true);
+    try {
+      const profile = await userApi.readUserProfile();
+
+      let teams: UserTeamOption[] = [];
+      try {
+        const teamResponse = await userApi.getCurrentUserTeams();
+        teams = Array.isArray(teamResponse) ? teamResponse : [];
+        if (teams.length === 0) {
+          teams = profile.allTeams || [];
+        }
+      } catch {
+        teams = profile.allTeams || [];
+      }
+
+      const resolvedDefaultTeamId =
+        resolveTeamId(profile.defaultTeam as { id?: string; _id?: string }) ||
+        teams[0]?.id ||
+        null;
+
+      const resolvedTeamId =
+        preferredTeamId ||
+        resolvedDefaultTeamId ||
+        resolveTeamId(profile.activeTeam as { id?: string; _id?: string }) ||
+        teams[0]?.id ||
+        null;
+
+      setUserTeams(teams);
+      setDefaultTeamId(resolvedDefaultTeamId);
+      setActiveTeamId(resolvedTeamId);
+
+      if (resolvedTeamId) {
+        localStorage.setItem('activeTeamId', resolvedTeamId);
+        try {
+          const detail = await teamApi.getTeamById(resolvedTeamId);
+          setActiveTeam(detail);
+
+          const detailId = resolveTeamId(detail);
+          const detailName = detail.name || 'Team';
+          if (detailId && !teams.some((team) => team.id === detailId)) {
+            setUserTeams((prev) => [...prev, { id: detailId, name: detailName }]);
+          }
+        } catch {
+          setActiveTeam(null);
+        }
+      } else {
+        setActiveTeam(null);
+      }
+    } finally {
+      setTeamContextLoading(false);
+    }
+  }, [user]);
+
+  const switchTeam = useCallback(async (teamId: string) => {
+    if (!teamId || teamId === activeTeamId) return;
+
+    setTeamSwitching(true);
+    try {
+      await userApi.switchActiveTeam(teamId);
+      await refreshTeamContext(teamId);
+    } finally {
+      setTeamSwitching(false);
+    }
+  }, [activeTeamId, refreshTeamContext]);
+
+  const setDefaultTeam = useCallback(async (teamId: string) => {
+    if (!teamId) return;
+
+    setTeamSwitching(true);
+    try {
+      await userApi.setDefaultTeam(teamId);
+      setDefaultTeamId(teamId);
+      await refreshTeamContext(activeTeamId || teamId);
+    } finally {
+      setTeamSwitching(false);
+    }
+  }, [activeTeamId, refreshTeamContext]);
 
   const updateStoredUser = (updatedUser: User) => {
     const users = getStoredUsers();
@@ -196,7 +308,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = () => {
     if (!user) return false;
-    return ['CEO', 'CTO', 'CFO', 'Founder', 'Manager', 'Team Leader'].includes(user.role);
+    const adminRoles = ['CEO', 'CTO', 'CFO', 'FOUNDER', 'MANAGER', 'TEAM LEADER', 'ADMIN'];
+    return adminRoles.includes(user.role.toUpperCase());
   };
 
   const isTeamMember = () => {
@@ -204,9 +317,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return !isAdmin();
   };
 
+  useEffect(() => {
+    if (!user) return;
+
+    void refreshTeamContext();
+  }, [refreshTeamContext, user]);
+
   return (
     <AuthContext.Provider value={{ 
       user, 
+      userTeams,
+      defaultTeamId,
+      activeTeamId,
+      activeTeam,
+      teamContextLoading,
+      teamSwitching,
+      switchTeam,
+      setDefaultTeam,
+      refreshTeamContext,
       loading, 
       login, 
       verifyLoginMfa,

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import { useAuth } from '../../context/AuthContext';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { activeTeamId } = useAuth();
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -33,7 +35,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         
         {/* Main Content */}
         <main className="flex-1 p-6 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
+          <div key={activeTeamId || 'no-team'} className="max-w-7xl mx-auto">
             {children}
           </div>
         </main>

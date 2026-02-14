@@ -47,11 +47,20 @@ export interface Expense {
 export interface Team {
   id: string;
   name: string;
-  color: string;
-  members: User[];
-  activeCount: number;
+  description?: string;
+  team_leader: string; // User ID
+  members: string[]; // Array of User IDs
+  monthly_budget: number;
+  monthly_budget_remaining?: number;
+  color?: string;
   department?: string;
-  monthlyBudget?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TeamWithDetails extends Omit<Team, 'team_leader' | 'members'> {
+  team_leader: User;
+  members: User[];
 }
 
 export interface Transaction {

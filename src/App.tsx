@@ -6,6 +6,8 @@ import Signup from './pages/Auth/Signup';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Expenses from './pages/Expenses/Expenses';
 import Team from './pages/Team/Team';
+import CreateTeam from './pages/Team/CreateTeam';
+import EditTeam from './pages/Team/EditTeam';
 import Reports from './pages/Reports/Reports';
 import Cards from './pages/Cards/Cards';
 import Settings from './pages/Settings/Settings';
@@ -43,6 +45,8 @@ const App: React.FC = () => {
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
           <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+          <Route path="/team/create" element={<ProtectedRoute><CreateTeam /></ProtectedRoute>} />
+          <Route path="/team/edit/:teamId" element={<ProtectedRoute><EditTeam /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

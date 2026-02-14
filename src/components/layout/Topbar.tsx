@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Search, Bell, Menu, User, Settings, LogOut, Key } from 'lucide-react';
+import { Search, Menu, User, Settings, LogOut, Key, ChevronDown, Check } from 'lucide-react';
 
 const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, userTeams, activeTeamId, activeTeam, teamSwitching, switchTeam, refreshTeamContext } = useAuth();
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
 
   const defaultAvatar = `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><rect width='100%' height='100%' fill='%23F3F4F6'/><text x='50%' y='50%' dy='.35em' text-anchor='middle' fill='%23374151' font-family='Arial,Helvetica,sans-serif' font-size='12' font-weight='600'>${user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}</text></svg>`
@@ -27,10 +28,26 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
     setIsDropdownOpen(false);
   };
 
+  const activeTeamName = activeTeam?.name || userTeams.find((team) => team.id === activeTeamId)?.name || 'Select Team';
+
+  const handleTeamSelect = async (teamId: string) => {
+    try {
+      await switchTeam(teamId);
+      setIsTeamDropdownOpen(false);
+    } catch (error) {
+      console.error('Failed to switch team:', error);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     setIsDropdownOpen(false);
   };
+
+  useEffect(() => {
+    if (!isTeamDropdownOpen) return;
+    void refreshTeamContext(activeTeamId || undefined);
+  }, [activeTeamId, isTeamDropdownOpen, refreshTeamContext]);
 
   return (
     <header className="w-full bg-white border-b border-gray-200 px-6 py-4">
@@ -59,20 +76,38 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
-          {/* Set Password Testing Button */}
-          <button 
-            onClick={handleSetPasswordClick}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-            title="Test Set Password Page"
-          >
-            <Key className="w-5 h-5" />
-          </button>
+          {/* Team Selector */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsTeamDropdownOpen((prev) => !prev)}
+              className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors min-w-[180px]"
+            >
+              <span className="text-sm text-gray-700 truncate text-left flex-1">{activeTeamName}</span>
+              <ChevronDown className="w-4 h-4 text-gray-500" />
+            </button>
 
-          {/* Notifications */}
-          <button className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+            {isTeamDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                {userTeams.length === 0 ? (
+                  <div className="px-4 py-2 text-sm text-gray-500">No teams available</div>
+                ) : (
+                  userTeams.map((team) => (
+                    <button
+                      key={team.id}
+                      type="button"
+                      onClick={() => handleTeamSelect(team.id)}
+                      disabled={teamSwitching}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between disabled:opacity-50"
+                    >
+                      <span className="truncate">{team.name}</span>
+                      {activeTeamId === team.id && <Check className="w-4 h-4 text-green-600" />}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
 
           {/* User Info & Dropdown */}
           <div className="flex items-center gap-3">
@@ -156,10 +191,13 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
       </div>
 
       {/* Click outside to close dropdown */}
-      {isDropdownOpen && (
+      {(isDropdownOpen || isTeamDropdownOpen) && (
         <div 
           className="fixed inset-0 z-40" 
-          onClick={() => setIsDropdownOpen(false)}
+          onClick={() => {
+            setIsDropdownOpen(false);
+            setIsTeamDropdownOpen(false);
+          }}
         />
       )}
     </header>

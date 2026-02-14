@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import api from '../../services/api';
-import type { Team, User, Role } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import type { TeamWithDetails, User, Role } from '../../types';
 import { 
-  Users, Plus, Search, Mail, UserPlus, Settings, 
+  Users, Plus, Search, Mail, UserPlus,
   Download, Trash2, Edit, FolderPlus, Tag, MoreVertical,
   Calendar
 } from 'lucide-react';
@@ -18,27 +20,58 @@ import {
   updateCategory as updateCategoryAction, 
   deleteCategory as deleteCategoryAction 
 } from '../../features/categories/categorySlice';
+import { 
+  fetchTeams as fetchTeamsAction, 
+  deleteTeam as deleteTeamAction 
+} from '../../features/teams/teamSlice';
 import type { Category } from '../../features/categories/categoryApi';
 
+type TeamItem = {
+  id: string;
+  _id?: string;
+  name: string;
+  description?: string;
+  color?: string;
+  department?: string;
+  monthlyBudget?: number;
+  monthly_budget?: number;
+  activeCount?: number;
+  members: User[];
+  createdAt?: string;
+  created_at?: string;
+  createdDate?: string;
+  created_date?: string;
+};
+
+type CategoryWithFallbackId = Category & { _id?: string };
+type DeletableTeam = TeamWithDetails | TeamItem;
+const DEMO_TEAMS: TeamItem[] = [];
+
 const TeamPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, defaultTeamId, setDefaultTeam } = useAuth();
   const dispatch = useAppDispatch();
-  const { categories, loading: categoriesLoading, creating: creatingCategory, updating: updatingCategory, deleting: deletingCategory } = useAppSelector((state) => state.categories);
+  const { categories, creating: creatingCategory, updating: updatingCategory, deleting: deletingCategory } = useAppSelector((state) => state.categories);
+  const { teams: reduxTeams, loading: teamsLoading, deleting: deletingTeam } = useAppSelector((state) => state.teams);
   
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams, setTeams] = useState<TeamItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showTeamActionMenu, setShowTeamActionMenu] = useState<string | null>(null);
+  const [teamActionMenuPosition, setTeamActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<TeamItem | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryWithFallbackId | null>(null);
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [teamDefaultingId, setTeamDefaultingId] = useState<string | null>(null);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [teamToDelete, setTeamToDelete] = useState<DeletableTeam | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<CategoryWithFallbackId | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState<string | null>(null);
 
   // New team form state
@@ -65,109 +98,42 @@ const TeamPage: React.FC = () => {
     teamId: ''
   });
 
+  const loadTeams = useCallback(async () => {
+    try {
+      const res = await api.get('/v1/teams');
+      const apiTeams = Array.isArray(res.data) ? (res.data as TeamItem[]) : [];
+      setTeams(apiTeams);
+    } catch (error) {
+      console.error('Failed to load teams:', error);
+      // Fallback to demo data if API fails
+      setTeams(DEMO_TEAMS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Category menus use closest-based click detection (no shared ref needed)
   // (clicks outside are detected via event.target.closest('[data-category-menu]'))
 
   useEffect(() => {
     loadTeams();
     dispatch(fetchCategories());
-  }, [dispatch]);
+    dispatch(fetchTeamsAction());
+  }, [dispatch, loadTeams]);
 
-  const loadTeams = async () => {
-    try {
-      const res = await api.get('/teams');
-      setTeams(res.data);
-    } catch (error) {
-      console.error('Failed to load teams:', error);
-      // Fallback to demo data if API fails
-      setTeams(demoTeams);
-    } finally {
-      setLoading(false);
-    }
+  // Check if user can create/edit/delete teams (Admin or Manager)
+  const canManageTeams = () => {
+    if (!user) return false;
+    const managerRoles = ['MANAGER', 'ADMIN', 'CEO', 'CTO', 'CFO', 'FOUNDER'];
+    return managerRoles.includes(user.role.toUpperCase());
   };
-
-  // Demo categories removed - now using Redux state
-  const demoCategories: Category[] = [
-    {
-      id: '1',
-      name: 'Development',
-      description: 'Software development and programming tasks',
-      color: '#3B82F6',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: '2',
-      name: 'Marketing',
-      description: 'Marketing campaigns and promotions',
-      color: '#10B981',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: '3',
-      name: 'Design',
-      description: 'UI/UX design and creative work',
-      color: '#8B5CF6',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ];
-
-  // Demo data for teams
-  const demoTeams: Team[] = [
-    {
-      id: '1',
-      name: 'Frontend Team',
-      color: '#3B82F6',
-      department: 'Engineering',
-      monthlyBudget: 15000,
-      activeCount: 8,
-      members: [
-        {
-          id: '1',
-          fullName: 'John Doe',
-          email: 'john.doe@company.com',
-          role: 'Team Leader',
-          token: 'token',
-          department: 'Engineering'
-        },
-        {
-          id: '2',
-          fullName: 'Jane Smith',
-          email: 'jane.smith@company.com',
-          role: 'Developer',
-          token: 'token',
-          department: 'Engineering'
-        }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Marketing Team',
-      color: '#10B981',
-      department: 'Marketing',
-      monthlyBudget: 20000,
-      activeCount: 6,
-      members: [
-        {
-          id: '3',
-          fullName: 'Mike Johnson',
-          email: 'mike.johnson@company.com',
-          role: 'Manager',
-          token: 'token',
-          department: 'Marketing'
-        }
-      ]
-    }
-  ];
 
   const departments = ['All', 'Engineering', 'Marketing', 'Sales', 'Design', 'Operations', 'HR', 'Finance'];
   const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316'];
 
-  const displayedTeams = teams.length > 0 ? teams : demoTeams;
+  const displayedTeams = teams.length > 0 ? teams : DEMO_TEAMS;
 
-  const filteredTeams = displayedTeams.filter(team => {
+  const filteredTeams = displayedTeams.filter((team) => {
     const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          team.department?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDepartment = selectedDepartment === 'All' || team.department === selectedDepartment;
@@ -175,7 +141,6 @@ const TeamPage: React.FC = () => {
   });
 
   const totalMembers = displayedTeams.reduce((sum, team) => sum + team.members.length, 0);
-  const activeMembers = displayedTeams.reduce((sum, team) => sum + team.activeCount, 0);
 
   // Team Management Functions
   const createTeam = async () => {
@@ -187,7 +152,7 @@ const TeamPage: React.FC = () => {
       members: []
     };
 
-    setTeams(prev => [...prev, teamData as Team]);
+    setTeams(prev => [...prev, teamData]);
     setShowCreateTeamModal(false);
     setNewTeam({ name: '', department: '', color: '#3B82F6', monthlyBudget: '' });
   };
@@ -212,7 +177,7 @@ const TeamPage: React.FC = () => {
 
   const updateCategory = async () => {
     if (!selectedCategory || !categoryForm.name || !categoryForm.description) return;
-    const idToUse = (selectedCategory as any).id || (selectedCategory as any)._id;
+    const idToUse = getCategoryId(selectedCategory);
     if (!idToUse) {
       alert('Category id is missing. Please reopen the edit modal and try again.');
       return;
@@ -237,9 +202,9 @@ const TeamPage: React.FC = () => {
     }
   };
 
-  const deleteCategory = async (category: Category) => {
+  const deleteCategory = async (category: CategoryWithFallbackId) => {
     try {
-      const idToUse = (category as any).id || (category as any)._id;
+      const idToUse = getCategoryId(category);
       if (!idToUse) throw new Error('Category id missing');
       await dispatch(deleteCategoryAction(idToUse)).unwrap();
       setShowDeleteModal(false);
@@ -251,7 +216,7 @@ const TeamPage: React.FC = () => {
     }
   };
 
-  const openEditCategoryModal = (category: Category) => {
+  const openEditCategoryModal = (category: CategoryWithFallbackId) => {
     setSelectedCategory(category);
     setCategoryForm({
       name: category.name,
@@ -262,7 +227,7 @@ const TeamPage: React.FC = () => {
     setShowCategoryMenu(null);
   };
 
-  const openDeleteCategoryModal = (category: Category) => {
+  const openDeleteCategoryModal = (category: CategoryWithFallbackId) => {
     setCategoryToDelete(category);
     setShowDeleteModal(true);
     setShowCategoryMenu(null);
@@ -273,10 +238,121 @@ const TeamPage: React.FC = () => {
     setShowCategoryMenu(prev => prev === categoryId ? null : categoryId);
   };
 
-  const deleteTeam = async (team: Team) => {
-    setTeams(prev => prev.filter(t => t.id !== team.id));
+  const deleteTeam = async (teamId: string) => {
+    setTeams(prev => prev.filter(t => t.id !== teamId));
     setShowDeleteModal(false);
     setTeamToDelete(null);
+  };
+
+  const handleTeamEdit = (teamId: string) => {
+    navigate(`/team/edit/${teamId}`);
+    setShowTeamActionMenu(null);
+    setTeamActionMenuPosition(null);
+  };
+
+  const handleTeamDeleteClick = (team: TeamWithDetails) => {
+    setTeamToDelete(team);
+    setShowDeleteModal(true);
+    setShowTeamActionMenu(null);
+    setTeamActionMenuPosition(null);
+  };
+
+  const toggleTeamActionMenu = (teamId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+
+    if (showTeamActionMenu === teamId) {
+      setShowTeamActionMenu(null);
+      setTeamActionMenuPosition(null);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 192;
+    const menuHeight = 96;
+    const gap = 8;
+
+    const openUp = window.innerHeight - rect.bottom < menuHeight + 16 && rect.top > menuHeight + 16;
+    const top = openUp ? rect.top - menuHeight - gap : rect.bottom + gap;
+    const left = Math.max(8, rect.right - menuWidth);
+
+    setTeamActionMenuPosition({ top, left });
+    setShowTeamActionMenu(teamId);
+  };
+
+  const handleTeamDeleteConfirm = async () => {
+    if (!teamToDelete) return;
+    try {
+      const teamId = getTeamId(teamToDelete);
+      if (!teamId) {
+        throw new Error('Team id is missing');
+      }
+      await dispatch(deleteTeamAction(teamId)).unwrap();
+      setShowDeleteModal(false);
+      setTeamToDelete(null);
+      dispatch(fetchTeamsAction());
+    } catch (error) {
+      console.error('Failed to delete team:', error);
+    }
+  };
+
+  const handleSetAsDefaultTeam = async (teamId: string) => {
+    if (!teamId || teamId === defaultTeamId) return;
+
+    try {
+      setTeamDefaultingId(teamId);
+      await setDefaultTeam(teamId);
+      setShowTeamActionMenu(null);
+      setTeamActionMenuPosition(null);
+    } catch (error) {
+      console.error('Failed to set default team:', error);
+    } finally {
+      setTeamDefaultingId(null);
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
+
+  const formatBudget = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const getEntityId = (value: { id?: string; _id?: string } | null | undefined): string => {
+    return String(value?.id ?? value?._id ?? '');
+  };
+
+  const getTeamId = (team: TeamWithDetails | TeamItem): string => {
+    return getEntityId(team);
+  };
+
+  const getTeamCreatedAt = (team: TeamWithDetails | TeamItem): string => {
+    const source = team as {
+      createdAt?: string;
+      created_at?: string;
+      createdDate?: string;
+      created_date?: string;
+    };
+
+    return source.createdAt || source.created_at || source.createdDate || source.created_date || '';
+  };
+
+  const getCategoryId = (category: CategoryWithFallbackId | null | undefined): string => {
+    return getEntityId(category);
+  };
+
+  const getMemberId = (member: User | string, index: number): string => {
+    if (typeof member === 'string') return member;
+    return member.id || member.email || String(index);
   };
 
   const addMember = async () => {
@@ -288,7 +364,7 @@ const TeamPage: React.FC = () => {
       email: newMember.email,
       role: newMember.role,
       token: 'token',
-      department: displayedTeams.find(t => t.id === newMember.teamId)?.department || ''
+      department: displayedTeams.find((t) => t.id === newMember.teamId)?.department || ''
     };
 
     setTeams(prev => prev.map(team => 
@@ -304,7 +380,7 @@ const TeamPage: React.FC = () => {
   const deleteMembers = async (teamId: string, memberIds: string[]) => {
     setTeams(prev => prev.map(team => 
       team.id === teamId 
-        ? { ...team, members: team.members.filter(m => !memberIds.includes(m.id)) }
+        ? { ...team, members: team.members.filter((m) => !memberIds.includes(getMemberId(m, 0))) }
         : team
     ));
     setSelectedMembers([]);
@@ -318,31 +394,31 @@ const TeamPage: React.FC = () => {
     );
   };
 
-  const selectAllMembers = (team: Team) => {
+  const selectAllMembers = (team: TeamItem) => {
     if (selectedMembers.length === team.members.length) {
       setSelectedMembers([]);
     } else {
-      setSelectedMembers(team.members.map(m => m.id));
+      setSelectedMembers(team.members.map((m, index) => getMemberId(m, index)));
     }
   };
 
   // Export Functions
   const exportToCSV = () => {
-    const csvData = displayedTeams.flatMap(team => 
-      team.members.map(member => ({
+    const csvData = displayedTeams.flatMap((team) => 
+      team.members.map((member) => ({
         Team: team.name,
         Department: team.department,
         'Member Name': member.fullName,
         Email: member.email,
         Role: member.role,
-        'Team Budget': team.monthlyBudget
+        'Team Budget': team.monthlyBudget ?? team.monthly_budget ?? 0
       }))
     );
 
     const headers = ['Team', 'Department', 'Member Name', 'Email', 'Role', 'Team Budget'];
     const csvContent = [
       headers.join(','),
-      ...csvData.map(row => 
+      ...csvData.map((row) => 
         headers.map(header => `"${row[header as keyof typeof row]}"`).join(',')
       )
     ].join('\n');
@@ -359,12 +435,6 @@ const TeamPage: React.FC = () => {
   const exportToPDF = () => {
     // Simple PDF export simulation
     alert('PDF export functionality would be implemented here with a PDF library like jsPDF');
-  };
-
-  const viewTeamDetails = (team: Team) => {
-    setSelectedTeam(team);
-    setSelectedMembers([]);
-    setShowTeamModal(true);
   };
 
   const getInitials = (name: string) => {
@@ -461,21 +531,23 @@ const TeamPage: React.FC = () => {
               <span className="hidden sm:inline">Add Member</span>
               <span className="sm:hidden">Member</span>
             </Button>
-            <Button 
-              onClick={() => setShowCreateTeamModal(true)}
-              size="sm"
-              className="w-full sm:w-auto"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Create Team</span>
-              <span className="sm:hidden">Team</span>
-            </Button>
+            {canManageTeams() && (
+              <Button 
+                onClick={() => navigate('/team/create')}
+                size="sm"
+                className="w-full sm:w-auto"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Create Team</span>
+                <span className="sm:hidden">Team</span>
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Stats Overview - Improved Design */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 lg:mb-8">
-          <Card padding="lg" hover={true} className="bg-gradient-to-br from-blue-50 to-white">
+          <Card padding="lg" hover={true} className="bg-linear-to-br from-blue-50 to-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Teams</p>
@@ -487,7 +559,7 @@ const TeamPage: React.FC = () => {
             </div>
           </Card>
 
-          <Card padding="lg" hover={true} className="bg-gradient-to-br from-green-50 to-white">
+          <Card padding="lg" hover={true} className="bg-linear-to-br from-green-50 to-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Members</p>
@@ -499,31 +571,11 @@ const TeamPage: React.FC = () => {
             </div>
           </Card>
 
-          <Card padding="lg" hover={true} className="bg-gradient-to-br from-purple-50 to-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Members</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">{activeMembers}</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </Card>
+          
 
-          <Card padding="lg" hover={true} className="bg-gradient-to-br from-orange-50 to-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Departments</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">{departments.length - 1}</p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                <Settings className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-          </Card>
+          
 
-          <Card padding="lg" hover={true} className="bg-gradient-to-br from-pink-50 to-white sm:col-span-2 lg:col-span-1">
+          <Card padding="lg" hover={true} className="bg-linear-to-br from-pink-50 to-white sm:col-span-2 lg:col-span-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Categories</p>
@@ -599,12 +651,15 @@ const TeamPage: React.FC = () => {
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {categories.map((category) => (
-                <Card key={category.id} padding="lg" hover={true}>
+              {categories.map((category, index) => {
+                const categoryId = getCategoryId(category) || `category-${index}`;
+
+                return (
+                <Card key={categoryId} padding="lg" hover={true}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
                         style={{ backgroundColor: category.color }}
                       >
                         <Tag className="w-5 h-5 text-white" />
@@ -617,15 +672,15 @@ const TeamPage: React.FC = () => {
                     <div className="relative shrink-0 ml-2">
                       <button 
                         data-category-toggle
-                        onClick={(e) => toggleCategoryMenu(category.id, e)}
+                        onClick={(e) => toggleCategoryMenu(categoryId, e)}
                         className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
                       
                       {/* Category Actions Menu - Only shows for clicked category */}
-                      {showCategoryMenu === category.id && (
-                        <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50" data-category-menu data-category-id={category.id}>
+                      {showCategoryMenu === categoryId && (
+                        <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50" data-category-menu data-category-id={categoryId}>
                           <button
                             onClick={() => openEditCategoryModal(category)}
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
@@ -646,10 +701,11 @@ const TeamPage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-500">
                     <Calendar className="w-3 h-3" />
-                    <span>Created: {new Date(category.createdAt).toLocaleDateString()}</span>
+                    <span>Created: {formatDate(category.createdAt)}</span>
                   </div>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -658,127 +714,178 @@ const TeamPage: React.FC = () => {
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Teams</h2>
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">{filteredTeams.length}</span> teams found
-            </div>
-          </div>
-          
-          {filteredTeams.length === 0 ? (
-            <Card className="text-center py-8 sm:py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No teams found</h3>
-              <p className="text-gray-600 mb-4">Get started by creating your first team.</p>
-              <Button onClick={() => setShowCreateTeamModal(true)}>
+            {canManageTeams() && (
+              <Button 
+                onClick={() => navigate('/team/create')}
+                size="sm"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Team
               </Button>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredTeams.map((team) => (
-                <Card key={team.id} padding="lg" hover={true}>
-                  {/* Team Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div 
-                        className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm"
-                        style={{ backgroundColor: team.color }}
-                      >
-                        {getInitials(team.name)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-gray-900 truncate">{team.name}</h3>
-                        <p className="text-sm text-gray-600 truncate">{team.department}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button 
-                        onClick={() => {
-                          setTeamToDelete(team);
-                          setShowDeleteModal(true);
-                        }}
-                        className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
+            )}
+          </div>
+          
+          <Card padding="none">
+            {teamsLoading ? (
+              <div className="p-12 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="mt-4 text-gray-600">Loading teams...</p>
+              </div>
+            ) : reduxTeams.length === 0 ? (
+              <div className="p-12 text-center">
+                <Users className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No teams yet</h3>
+                <p className="text-gray-600 mb-6">Get started by creating your first team</p>
+                {canManageTeams() && (
+                  <Button onClick={() => navigate('/team/create')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Team
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Monthly Budget
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Members
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created At
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {reduxTeams.map((team, index) => {
+                      const teamId = getTeamId(team) || `team-${index}`;
 
-                  {/* Team Stats */}
-                  <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="text-center flex-1">
-                      <p className="text-lg font-bold text-gray-900">{team.members.length}</p>
-                      <p className="text-xs text-gray-600">Members</p>
-                    </div>
-                    <div className="text-center flex-1">
-                      <p className="text-lg font-bold text-gray-900">{team.activeCount}</p>
-                      <p className="text-xs text-gray-600">Active</p>
-                    </div>
-                    <div className="text-center flex-1">
-                      <p className="text-lg font-bold text-gray-900">
-                        ${team.monthlyBudget?.toLocaleString() || '0'}
-                      </p>
-                      <p className="text-xs text-gray-600">Budget</p>
-                    </div>
-                  </div>
-
-                  {/* Team Members */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Team Members</h4>
-                    <div className="space-y-2">
-                      {team.members.slice(0, 3).map((member) => (
-                        <div key={member.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-700 flex-shrink-0">
-                              {getInitials(member.fullName)}
+                      return (
+                      <tr key={teamId} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                              <span>{team.name}</span>
+                              {defaultTeamId === teamId && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                                  Default Team
+                                </span>
+                              )}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900 truncate">{member.fullName}</p>
-                              <Badge 
-                                status={getRoleColor(member.role) as 'default'} 
-                                size="sm"
-                                className="mt-1"
-                              >
-                                <span className="truncate">{member.role}</span>
-                              </Badge>
-                            </div>
+                            {team.description && (
+                              <div className="text-sm text-gray-500 truncate max-w-xs">{team.description}</div>
+                            )}
                           </div>
-                          <div className="text-xs text-gray-500 truncate ml-2 hidden sm:block">
-                            {member.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {team.monthly_budget ? formatBudget(team.monthly_budget) : 'N/A'}
                           </div>
-                        </div>
-                      ))}
-                      {team.members.length > 3 && (
-                        <div className="text-center pt-2">
-                          <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                            + {team.members.length - 3} more members
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {team.members.length} {team.members.length === 1 ? 'member' : 'members'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{formatDate(getTeamCreatedAt(team))}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => toggleTeamActionMenu(teamId, e)}
+                              className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                              aria-label="Team actions"
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                            
+                            {showTeamActionMenu === teamId && teamActionMenuPosition && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowTeamActionMenu(null);
+                                    setTeamActionMenuPosition(null);
+                                  }}
+                                />
+                                <div
+                                  className="fixed w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50"
+                                  style={{ top: teamActionMenuPosition.top, left: teamActionMenuPosition.left }}
+                                >
+                                  {canManageTeams() && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTeamEdit(teamId);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                      Edit Team
+                                    </button>
+                                  )}
 
-                  {/* Team Actions */}
-                  <div className="flex gap-2 pt-4 border-t border-gray-200">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => viewTeamDetails(team)}
-                    >
-                      View Details
-                    </Button>
-                    <Button variant="ghost" size="sm" className="px-3">
-                      <Mail className="w-4 h-4" />
-                      <span className="sr-only">Email Team</span>
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
+                                  {canManageTeams() && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTeamDeleteClick(team);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      Delete Team
+                                    </button>
+                                  )}
+
+                                  {defaultTeamId !== teamId && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleSetAsDefaultTeam(teamId);
+                                      }}
+                                      disabled={teamDefaultingId === teamId}
+                                      className="w-full px-4 py-2 text-left text-sm text-blue-700 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-60"
+                                    >
+                                      <Tag className="w-4 h-4" />
+                                      {teamDefaultingId === teamId ? 'Setting...' : 'Set As Default Team'}
+                                    </button>
+                                  )}
+
+                                  {defaultTeamId === teamId && (
+                                    <div className="w-full px-4 py-2 text-left text-sm text-gray-500 flex items-center gap-2">
+                                      <Tag className="w-4 h-4" />
+                                      Default Team
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </div>
 
         {/* Team Details Modal */}
@@ -809,28 +916,28 @@ const TeamPage: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Active Members:</span>
-                      <span className="text-sm font-medium">{selectedTeam.activeCount}</span>
+                      <span className="text-sm font-medium">{selectedTeam.activeCount ?? 0}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Monthly Budget:</span>
-                      <span className="text-sm font-medium">${selectedTeam.monthlyBudget?.toLocaleString() || '0'}</span>
+                      <span className="text-sm font-medium">${(selectedTeam.monthlyBudget ?? selectedTeam.monthly_budget ?? 0).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
                 <div>
                   <h4 className="font-medium text-gray-900 mb-3">Team Lead</h4>
-                  {selectedTeam.members.find(m => m.role === 'Manager' || m.role === 'Team Leader') ? (
+                  {selectedTeam.members.find((m) => m.role === 'Manager' || m.role === 'Team Leader') ? (
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                       <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-sm font-medium">
-                        {getInitials(selectedTeam.members.find(m => m.role === 'Manager' || m.role === 'Team Leader')!.fullName)}
+                        {getInitials(selectedTeam.members.find((m) => m.role === 'Manager' || m.role === 'Team Leader')?.fullName || '')}
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">
-                          {selectedTeam.members.find(m => m.role === 'Manager' || m.role === 'Team Leader')!.fullName}
+                          {selectedTeam.members.find((m) => m.role === 'Manager' || m.role === 'Team Leader')?.fullName || 'N/A'}
                         </p>
                         <p className="text-sm text-gray-600">
-                          {selectedTeam.members.find(m => m.role === 'Manager' || m.role === 'Team Leader')!.email}
+                          {selectedTeam.members.find((m) => m.role === 'Manager' || m.role === 'Team Leader')?.email || 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -867,16 +974,19 @@ const TeamPage: React.FC = () => {
                     <span className="text-sm font-medium text-gray-700">Select All</span>
                   </div>
 
-                  {selectedTeam.members.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                  {selectedTeam.members.map((member, index) => {
+                    const memberId = getMemberId(member, index);
+
+                    return (
+                    <div key={memberId} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <input
                           type="checkbox"
-                          checked={selectedMembers.includes(member.id)}
-                          onChange={() => toggleMemberSelection(member.id)}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 flex-shrink-0"
+                          checked={selectedMembers.includes(memberId)}
+                          onChange={() => toggleMemberSelection(memberId)}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 shrink-0"
                         />
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0">
+                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium shrink-0">
                           {getInitials(member.fullName)}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -889,19 +999,20 @@ const TeamPage: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
                         <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
                           <Mail className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => deleteMembers(selectedTeam.id, [member.id])}
+                          onClick={() => deleteMembers(selectedTeam.id, [memberId])}
                           className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1263,9 +1374,12 @@ const TeamPage: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select team</option>
-                  {displayedTeams.map(team => (
-                    <option key={team.id} value={team.id}>{team.name}</option>
-                  ))}
+                  {displayedTeams.map((team: TeamItem, index: number) => {
+                    const teamId = getTeamId(team) || `team-option-${index}`;
+                    return (
+                      <option key={teamId} value={teamId}>{team.name}</option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -1314,15 +1428,25 @@ const TeamPage: React.FC = () => {
                 variant="danger" 
                 onClick={() => {
                   if (teamToDelete) {
-                    deleteTeam(teamToDelete);
+                    const teamId = getTeamId(teamToDelete);
+                    if (!teamId) {
+                      return;
+                    }
+                    // Check if it's a Redux team (TeamWithDetails)
+                    if ('team_leader' in teamToDelete || reduxTeams.find(t => getTeamId(t) === teamId)) {
+                      handleTeamDeleteConfirm();
+                    } else {
+                      deleteTeam(teamId);
+                    }
                   } else if (categoryToDelete) {
                     deleteCategory(categoryToDelete);
                   }
                 }}
+                disabled={deletingTeam || deletingCategory}
                 className="w-full sm:w-auto"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Delete
+                {deletingTeam || deletingCategory ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
           </div>

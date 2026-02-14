@@ -3,6 +3,7 @@ import mfaSetupReducer from './features/mfaSetup/mfaSetupSlice';
 import inviteReducer from './features/invite/inviteSlice';
 import loginReducer from './features/auth/loginSlice';
 import categoryReducer from './features/categories/categorySlice';
+import teamReducer from './features/teams/teamSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     invite: inviteReducer,
     auth: loginReducer,
     categories: categoryReducer,
+    teams: teamReducer,
   },
 });
 
