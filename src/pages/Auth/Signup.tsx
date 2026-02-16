@@ -27,7 +27,10 @@ const Signup: React.FC = () => {
       });
       return;
     }
-    await signup(parsed.data as Form & { password: string });
+    await signup({
+      ...parsed.data,
+      role: 'Member',
+    });
     navigate('/');
   };
 

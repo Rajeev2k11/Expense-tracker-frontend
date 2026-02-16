@@ -64,7 +64,7 @@ const SetPassword: React.FC = () => {
       dispatch(setMessagefromSetPassword(message));
       navigate('/mfa/setup');
     }
-  }, [success, challengeId, navigate, dispatch]);
+  }, [success, challengeId, message, navigate, dispatch]);
 
   const handleSetupPassword = async () => {
     if (isSetupEnabled && token) {

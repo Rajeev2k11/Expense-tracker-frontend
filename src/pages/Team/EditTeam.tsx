@@ -35,6 +35,7 @@ const EditTeam: React.FC = () => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [members, setMembers] = useState<EditableMember[]>([]);
+  const [initialMemberIds, setInitialMemberIds] = useState<string[]>([]);
   const [changedRoles, setChangedRoles] = useState<Record<string, TeamRole>>({});
 
   const [loading, setLoading] = useState(true);
@@ -146,6 +147,7 @@ const EditTeam: React.FC = () => {
         }
 
         setMembers(normalizedMembers);
+        setInitialMemberIds(normalizedMembers.map((member) => member.id));
         setChangedRoles({});
         setAllUsers(users);
       } catch (err) {
@@ -255,6 +257,9 @@ const EditTeam: React.FC = () => {
 
     try {
       const memberIds = members.map((member) => member.id);
+      const removedMemberIds = initialMemberIds.filter(
+        (memberId) => !memberIds.includes(memberId)
+      );
 
       const roleChanges = isAdminUser
         ? members
@@ -264,6 +269,12 @@ const EditTeam: React.FC = () => {
               role: changedRoles[member.id],
             }))
         : [];
+
+      if (removedMemberIds.length > 0) {
+        await Promise.all(
+          removedMemberIds.map((memberId) => teamApi.removeTeamMember(teamId, memberId))
+        );
+      }
 
       await teamApi.updateTeam(teamId, {
         name: formData.name.trim(),

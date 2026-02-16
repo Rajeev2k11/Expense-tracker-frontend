@@ -104,12 +104,12 @@ const TeamPage: React.FC = () => {
 
   const isAdminUser = user?.role?.toUpperCase() === 'ADMIN';
 
-  const normalizeRole = (role: unknown): Role => {
+  const normalizeRole = useCallback((role: unknown): Role => {
     if (typeof role === 'string' && role.trim().length > 0) return role as Role;
     return 'Employee';
-  };
+  }, []);
 
-  const normalizeMember = (member: unknown, index: number): User => {
+  const normalizeMember = useCallback((member: unknown, index: number): User => {
     const source = (member || {}) as {
       id?: string;
       _id?: string;
@@ -143,9 +143,9 @@ const TeamPage: React.FC = () => {
       joinDate: source.joinDate,
       bio: source.bio,
     };
-  };
+  }, [normalizeRole]);
 
-  const mapTeamToItem = (team: unknown): TeamItem => {
+  const mapTeamToItem = useCallback((team: unknown): TeamItem => {
     const source = (team || {}) as {
       id?: string;
       _id?: string;
@@ -204,7 +204,7 @@ const TeamPage: React.FC = () => {
           ? source.total_members
           : undefined,
     };
-  };
+  }, [normalizeMember]);
 
   const loadTeams = useCallback(async () => {
     setLoading(true);
@@ -228,7 +228,7 @@ const TeamPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdminUser]);
+  }, [isAdminUser, mapTeamToItem]);
 
   // Category menus use closest-based click detection (no shared ref needed)
   // (clicks outside are detected via event.target.closest('[data-category-menu]'))
