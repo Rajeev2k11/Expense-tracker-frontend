@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Search, Menu, User, Settings, LogOut, Key, ChevronDown, Check } from 'lucide-react';
 
 const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
-  const { user, logout, userTeams, activeTeamId, activeTeam, teamSwitching, switchTeam, refreshTeamContext } = useAuth();
+  const { user, logout, userTeams, activeTeamId, teamSwitching, switchTeam } = useAuth();
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
@@ -28,7 +28,7 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
     setIsDropdownOpen(false);
   };
 
-  const activeTeamName = activeTeam?.name || userTeams.find((team) => team.id === activeTeamId)?.name || 'Select Team';
+  const activeTeamName = userTeams.find((team) => team.id === activeTeamId)?.name || 'Select Team';
 
   const handleTeamSelect = async (teamId: string) => {
     try {
@@ -43,11 +43,6 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
     logout();
     setIsDropdownOpen(false);
   };
-
-  useEffect(() => {
-    if (!isTeamDropdownOpen) return;
-    void refreshTeamContext(activeTeamId || undefined);
-  }, [activeTeamId, isTeamDropdownOpen, refreshTeamContext]);
 
   return (
     <header className="w-full bg-white border-b border-gray-200 px-6 py-4">

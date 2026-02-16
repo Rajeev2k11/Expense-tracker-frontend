@@ -13,12 +13,17 @@ import { ArrowLeft, Users, Search, X, AlertCircle, CheckCircle } from 'lucide-re
 
 // Team role type for members in a team
 type TeamRole = 'Manager' | 'Member';
-type LeaderRole = 'Manager' | 'Admin' | 'CEO' | 'CTO';
 
 interface SelectedMember {
   user: User;
   teamRole: TeamRole;
 }
+
+type RawUser = Partial<User> & {
+  _id?: string;
+  name?: string;
+  username?: string;
+};
 
 const CreateTeam: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +43,7 @@ const CreateTeam: React.FC = () => {
   const [selectedMembers, setSelectedMembers] = useState<SelectedMember[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
-  const [leaderRole, setLeaderRole] = useState<LeaderRole>('Manager');
+  const [teamLeaderId, setTeamLeaderId] = useState('');
   
   // Store selected team role for each user in the list
   const [selectedRoles, setSelectedRoles] = useState<Record<string, TeamRole>>({});
@@ -50,8 +55,7 @@ const CreateTeam: React.FC = () => {
       return;
     }
 
-    const managerRoles = ['MANAGER', 'ADMIN', 'CEO', 'CTO', 'CFO', 'FOUNDER'];
-    const isAuthorized = managerRoles.includes(user.role.toUpperCase());
+    const isAuthorized = user.role.toUpperCase() === 'ADMIN';
     
     if (!isAuthorized) {
       navigate('/team');
@@ -61,13 +65,41 @@ const CreateTeam: React.FC = () => {
 
   // Load all users
   useEffect(() => {
+    const getUserId = (candidate: RawUser): string => String(candidate.id ?? candidate._id ?? '');
+
+    const normalizeUser = (candidate: RawUser): User | null => {
+      const id = getUserId(candidate);
+      if (!id) return null;
+
+      const email = String(candidate.email ?? '');
+      const fullName = String(candidate.fullName ?? candidate.name ?? candidate.username ?? email ?? 'User');
+
+      return {
+        id,
+        fullName,
+        email,
+        role: (candidate.role || 'Member') as User['role'],
+        token: candidate.token || '',
+        avatar: candidate.avatar,
+        phone: candidate.phone,
+        location: candidate.location,
+        department: candidate.department,
+        joinDate: candidate.joinDate,
+        bio: candidate.bio,
+      };
+    };
+
     const loadUsers = async () => {
       setLoadingUsers(true);
       setUsersError(null);
       try {
         const users = await userApi.getAllUsers();
-        setAllUsers(users);
-        setFilteredUsers(users);
+        const normalizedUsers = (Array.isArray(users) ? users : [])
+          .map((candidate) => normalizeUser(candidate as RawUser))
+          .filter((candidate): candidate is User => !!candidate);
+
+        setAllUsers(normalizedUsers);
+        setFilteredUsers(normalizedUsers);
       } catch (err) {
         console.error('Failed to load users:', err);
         setUsersError('Failed to load users. Please try again.');
@@ -102,19 +134,21 @@ const CreateTeam: React.FC = () => {
   };
 
   const handleAddMember = (userToAdd: User) => {
+    const userToAddId = String(userToAdd.id || '');
+
     // Check if user is already added (by ID or email)
     if (selectedMembers.find((m) => 
-      (userToAdd.id && m.user.id === userToAdd.id) || 
+      (userToAddId && m.user.id === userToAddId) || 
       (m.user.email === userToAdd.email)
     )) {
       return;
     }
     
     // Get selected role or default to 'Member'
-    const roleKey = userToAdd.id || userToAdd.email;
+    const roleKey = userToAddId || userToAdd.email;
     const teamRole = selectedRoles[roleKey] || 'Member';
-    
-    setSelectedMembers((prev) => [...prev, { user: userToAdd, teamRole }]);
+
+    setSelectedMembers((prev) => [...prev, { user: { ...userToAdd, id: userToAddId }, teamRole }]);
   };
 
   const handleRemoveMember = (userId: string | undefined, userEmail: string) => {
@@ -126,6 +160,10 @@ const CreateTeam: React.FC = () => {
       // Otherwise compare by email (more reliable)
       return m.user.email !== userEmail;
     }));
+
+    if ((userId && teamLeaderId === userId) || (!userId && teamLeaderId === userEmail)) {
+      setTeamLeaderId('');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,36 +181,33 @@ const CreateTeam: React.FC = () => {
       return;
     }
 
-    // Team leader is the current user
-    const teamLeaderId = user.id;
-
-    // Members array includes all selected member IDs + team leader
-    const memberIds = [
-      teamLeaderId,
-      ...selectedMembers.map((m) => m.user.id).filter((id) => id !== teamLeaderId),
-    ];
+    const memberIds = selectedMembers
+      .map((m) => m.user.id)
+      .filter((id): id is string => !!id);
 
     try {
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        monthly_budget: parseFloat(formData.monthly_budget),
+        createdAt: new Date().toISOString(),
+        ...(teamLeaderId ? { team_leader: teamLeaderId } : {}),
+        ...(memberIds.length > 0 ? { members: memberIds } : {}),
+      };
+
       const createdTeam = await dispatch(
-        createTeam({
-          name: formData.name,
-          description: formData.description,
-          team_leader: teamLeaderId,
-          members: memberIds,
-          monthly_budget: parseFloat(formData.monthly_budget),
-          createdAt: new Date().toISOString(),
-        })
+        createTeam(payload)
       ).unwrap();
 
       const createdTeamId = String((createdTeam as { id?: string; _id?: string }).id ?? (createdTeam as { id?: string; _id?: string })._id ?? '');
 
       if (createdTeamId) {
-        const roleAssignments: Array<{ memberId: string; role: string }> = [
-          { memberId: teamLeaderId, role: leaderRole },
-          ...selectedMembers
-            .filter((m) => !!m.user.id)
-            .map((m) => ({ memberId: m.user.id, role: m.teamRole })),
-        ];
+        const roleAssignments: Array<{ memberId: string; role: string }> = selectedMembers
+          .filter((m) => !!m.user.id)
+          .map((m) => ({
+            memberId: m.user.id,
+            role: m.user.id === teamLeaderId ? 'Manager' : m.teamRole,
+          }));
 
         if (roleAssignments.length > 0) {
           await Promise.all(
@@ -269,27 +304,7 @@ const CreateTeam: React.FC = () => {
                 </div>
               </div>
 
-              {/* Team Leader Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <p className="text-sm text-blue-800">
-                    <strong>Team Leader:</strong> {user.fullName} ({user.email})
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium text-blue-900">Leader Role:</label>
-                    <select
-                      value={leaderRole}
-                      onChange={(e) => setLeaderRole(e.target.value as LeaderRole)}
-                      className="px-2 py-1 text-sm border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="Manager">Manager</option>
-                      <option value="Admin">Admin</option>
-                      <option value="CEO">CEO</option>
-                      <option value="CTO">CTO</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+             
             </div>
           </Card>
 
@@ -339,51 +354,46 @@ const CreateTeam: React.FC = () => {
                     ) : (
                       <div className="divide-y divide-gray-200">
                         {filteredUsers.map((userItem, index) => {
+                          const userItemId = String(userItem.id || '');
                           const isAlreadyAdded = selectedMembers.find((m) => 
-                            (userItem.id && m.user.id === userItem.id) || 
+                            (userItemId && m.user.id === userItemId) || 
                             (m.user.email === userItem.email)
                           );
-                          const isCurrentUser = userItem.id === user.id;
-                          const roleKey = userItem.id || userItem.email; // Use email as fallback
+                          const roleKey = userItemId || userItem.email; // Use email as fallback
                           const selectedRole = selectedRoles[roleKey] || 'Member';
 
                           return (
                             <div
-                              key={userItem.id || `user-${index}`}
+                              key={userItemId || `user-${index}`}
                               className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
                             >
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-gray-900 truncate">
                                   {userItem.fullName}
-                                  {isCurrentUser && (
-                                    <span className="ml-2 text-xs text-blue-600">(You - Team Leader)</span>
-                                  )}
                                 </p>
                                 <p className="text-sm text-gray-600 truncate">{userItem.email}</p>
                               </div>
                               <div className="flex items-center gap-3 ml-4">
-                                {!isCurrentUser && (
-                                  <select
-                                    value={selectedRole}
-                                    onChange={(e) => handleRoleChange(userItem.id, userItem.email, e.target.value as TeamRole)}
-                                    className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    disabled={!!isAlreadyAdded}
-                                  >
-                                    <option value="Member">Member</option>
-                                    <option value="Manager">Manager</option>
-                                  </select>
-                                )}
+                                <select
+                                  value={selectedRole}
+                                  onChange={(e) => handleRoleChange(userItemId, userItem.email, e.target.value as TeamRole)}
+                                  className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  disabled={!!isAlreadyAdded}
+                                >
+                                  <option value="Member">Member</option>
+                                  <option value="Manager">Manager</option>
+                                </select>
                                 <button
                                   type="button"
                                   onClick={() => handleAddMember(userItem)}
-                                  disabled={!!isAlreadyAdded || isCurrentUser}
+                                  disabled={!!isAlreadyAdded}
                                   className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                                    isAlreadyAdded || isCurrentUser
+                                    isAlreadyAdded
                                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                       : 'bg-blue-600 text-white hover:bg-blue-700'
                                   }`}
                                 >
-                                  {isCurrentUser ? 'Leader' : isAlreadyAdded ? 'Added' : 'Add'}
+                                  {isAlreadyAdded ? 'Added' : 'Add'}
                                 </button>
                               </div>
                             </div>
@@ -397,28 +407,30 @@ const CreateTeam: React.FC = () => {
             </div>
 
             {/* Selected Members */}
-            {(selectedMembers.length > 0 || !!user) && (
+            {selectedMembers.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-600" />
-                  Selected Members ({selectedMembers.length + 1})
+                  Selected Members ({selectedMembers.length})
                 </h3>
-                <div className="space-y-2">
-                  <div
-                    className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{user.fullName}</p>
-                      <p className="text-sm text-gray-600 truncate">{user.email}</p>
-                    </div>
-                    <div className="flex items-center gap-3 ml-4">
-                      <span className="text-xs px-2 py-1 bg-white border border-blue-300 text-gray-700 rounded-full whitespace-nowrap">
-                        {leaderRole}
-                      </span>
-                      <span className="text-xs text-blue-700 font-medium">Leader (Auto Added)</span>
-                    </div>
-                  </div>
 
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Team Leader (optional)</label>
+                  <select
+                    value={teamLeaderId}
+                    onChange={(e) => setTeamLeaderId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">No team leader selected</option>
+                    {selectedMembers.map((member) => (
+                      <option key={member.user.id} value={member.user.id}>
+                        {member.user.fullName} ({member.user.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
                   {selectedMembers.map((member, index) => (
                     <div
                       key={member.user.id || `selected-${index}`}
@@ -430,7 +442,7 @@ const CreateTeam: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-3 ml-4">
                         <span className="text-xs px-2 py-1 bg-white border border-green-300 text-gray-700 rounded-full whitespace-nowrap">
-                          {member.teamRole}
+                          {member.user.id === teamLeaderId ? 'Manager (Leader)' : member.teamRole}
                         </span>
                         <button
                           type="button"

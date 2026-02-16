@@ -4,8 +4,8 @@ import type { TeamWithDetails } from '../../types';
 export interface CreateTeamRequest {
   name: string;
   description: string;
-  team_leader: string;
-  members: string[];
+  team_leader?: string;
+  members?: string[];
   monthly_budget: number;
   createdAt?: string;
 }

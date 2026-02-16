@@ -1,10 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { v4 as uid } from 'uuid';
-import type { User, Role, ProfileFormData, TeamWithDetails } from '../types';
+import type { User, Role, ProfileFormData } from '../types';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { performLogin, verifyLoginMfa as verifyLoginMfaThunk } from '../features/auth/loginSlice';
 import { userApi, type UserTeamOption } from '../features/users/userApi';
-import { teamApi } from '../features/teams/teamApi';
 
 // LocalStorage keys
 const USERS_KEY = 'mock_users';
@@ -33,7 +32,6 @@ interface AuthContextValue {
   userTeams: UserTeamOption[];
   defaultTeamId: string | null;
   activeTeamId: string | null;
-  activeTeam: TeamWithDetails | null;
   teamContextLoading: boolean;
   teamSwitching: boolean;
   switchTeam: (teamId: string) => Promise<void>;
@@ -68,7 +66,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userTeams, setUserTeams] = useState<UserTeamOption[]>([]);
   const [defaultTeamId, setDefaultTeamId] = useState<string | null>(null);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
-  const [activeTeam, setActiveTeam] = useState<TeamWithDetails | null>(null);
   const [teamContextLoading, setTeamContextLoading] = useState(false);
   const [teamSwitching, setTeamSwitching] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -97,7 +94,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserTeams([]);
       setDefaultTeamId(null);
       setActiveTeamId(null);
-      setActiveTeam(null);
     }
   };
 
@@ -109,7 +105,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) {
       setUserTeams([]);
       setActiveTeamId(null);
-      setActiveTeam(null);
       return;
     }
 
@@ -146,20 +141,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (resolvedTeamId) {
         localStorage.setItem('activeTeamId', resolvedTeamId);
-        try {
-          const detail = await teamApi.getTeamById(resolvedTeamId);
-          setActiveTeam(detail);
-
-          const detailId = resolveTeamId(detail);
-          const detailName = detail.name || 'Team';
-          if (detailId && !teams.some((team) => team.id === detailId)) {
-            setUserTeams((prev) => [...prev, { id: detailId, name: detailName }]);
-          }
-        } catch {
-          setActiveTeam(null);
-        }
-      } else {
-        setActiveTeam(null);
       }
     } finally {
       setTeamContextLoading(false);
@@ -172,11 +153,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTeamSwitching(true);
     try {
       await userApi.switchActiveTeam(teamId);
-      await refreshTeamContext(teamId);
+      setActiveTeamId(teamId);
+      localStorage.setItem('activeTeamId', teamId);
     } finally {
       setTeamSwitching(false);
     }
-  }, [activeTeamId, refreshTeamContext]);
+  }, [activeTeamId]);
 
   const setDefaultTeam = useCallback(async (teamId: string) => {
     if (!teamId) return;
@@ -185,11 +167,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await userApi.setDefaultTeam(teamId);
       setDefaultTeamId(teamId);
-      await refreshTeamContext(activeTeamId || teamId);
+
+      // Keep local state in sync without triggering extra profile/teams refetch.
+      if (!activeTeamId) {
+        setActiveTeamId(teamId);
+        localStorage.setItem('activeTeamId', teamId);
+      }
     } finally {
       setTeamSwitching(false);
     }
-  }, [activeTeamId, refreshTeamContext]);
+  }, [activeTeamId]);
 
   const updateStoredUser = (updatedUser: User) => {
     const users = getStoredUsers();
@@ -329,7 +316,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userTeams,
       defaultTeamId,
       activeTeamId,
-      activeTeam,
       teamContextLoading,
       teamSwitching,
       switchTeam,

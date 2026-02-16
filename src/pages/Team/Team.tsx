@@ -5,7 +5,6 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
-import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import type { TeamWithDetails, User, Role } from '../../types';
 import { 
@@ -21,10 +20,11 @@ import {
   deleteCategory as deleteCategoryAction 
 } from '../../features/categories/categorySlice';
 import { 
-  fetchTeams as fetchTeamsAction, 
   deleteTeam as deleteTeamAction 
 } from '../../features/teams/teamSlice';
 import type { Category } from '../../features/categories/categoryApi';
+import { userApi } from '../../features/users/userApi';
+import { teamApi } from '../../features/teams/teamApi';
 
 type TeamItem = {
   id: string;
@@ -41,6 +41,10 @@ type TeamItem = {
   created_at?: string;
   createdDate?: string;
   created_date?: string;
+  team_leader?: User | null;
+  monthly_budget_remaining?: number;
+  memberCount?: number;
+  totalMembers?: number;
 };
 
 type CategoryWithFallbackId = Category & { _id?: string };
@@ -49,10 +53,10 @@ const DEMO_TEAMS: TeamItem[] = [];
 
 const TeamPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, defaultTeamId, setDefaultTeam } = useAuth();
+  const { user, defaultTeamId, activeTeamId, setDefaultTeam } = useAuth();
   const dispatch = useAppDispatch();
   const { categories, creating: creatingCategory, updating: updatingCategory, deleting: deletingCategory } = useAppSelector((state) => state.categories);
-  const { teams: reduxTeams, loading: teamsLoading, deleting: deletingTeam } = useAppSelector((state) => state.teams);
+  const { deleting: deletingTeam } = useAppSelector((state) => state.teams);
   
   const [teams, setTeams] = useState<TeamItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,19 +102,133 @@ const TeamPage: React.FC = () => {
     teamId: ''
   });
 
+  const isAdminUser = user?.role?.toUpperCase() === 'ADMIN';
+
+  const normalizeRole = (role: unknown): Role => {
+    if (typeof role === 'string' && role.trim().length > 0) return role as Role;
+    return 'Employee';
+  };
+
+  const normalizeMember = (member: unknown, index: number): User => {
+    const source = (member || {}) as {
+      id?: string;
+      _id?: string;
+      fullName?: string;
+      name?: string;
+      username?: string;
+      email?: string;
+      role?: string;
+      token?: string;
+      avatar?: string;
+      phone?: string;
+      location?: string;
+      department?: string;
+      joinDate?: string;
+      bio?: string;
+    };
+
+    const email = source.email || '';
+    const fullName = source.fullName || source.name || source.username || email || `Member ${index + 1}`;
+
+    return {
+      id: String(source.id ?? source._id ?? email ?? index),
+      fullName,
+      email,
+      role: normalizeRole(source.role),
+      token: source.token || '',
+      avatar: source.avatar,
+      phone: source.phone,
+      location: source.location,
+      department: source.department,
+      joinDate: source.joinDate,
+      bio: source.bio,
+    };
+  };
+
+  const mapTeamToItem = (team: unknown): TeamItem => {
+    const source = (team || {}) as {
+      id?: string;
+      _id?: string;
+      name?: string;
+      description?: string;
+      color?: string;
+      department?: string;
+      monthlyBudget?: number;
+      monthly_budget?: number;
+      monthly_budget_remaining?: number;
+      activeCount?: number;
+      members?: unknown[];
+      createdAt?: string;
+      created_at?: string;
+      createdDate?: string;
+      created_date?: string;
+      team_leader?: unknown;
+      memberCount?: number;
+      member_count?: number;
+      totalMembers?: number;
+      total_members?: number;
+    };
+
+    const members = Array.isArray(source.members)
+      ? source.members.map((member, index) => normalizeMember(member, index))
+      : [];
+
+    return {
+      id: String(source.id ?? source._id ?? ''),
+      _id: source._id,
+      name: source.name || 'Team',
+      description: source.description || '',
+      color: source.color,
+      department: source.department,
+      monthlyBudget: typeof source.monthlyBudget === 'number' ? source.monthlyBudget : undefined,
+      monthly_budget: typeof source.monthly_budget === 'number' ? source.monthly_budget : 0,
+      monthly_budget_remaining:
+        typeof source.monthly_budget_remaining === 'number' ? source.monthly_budget_remaining : 0,
+      activeCount: source.activeCount,
+      members,
+      createdAt: source.createdAt,
+      created_at: source.created_at,
+      createdDate: source.createdDate,
+      created_date: source.created_date,
+      team_leader: source.team_leader ? normalizeMember(source.team_leader, 0) : null,
+      memberCount:
+        typeof source.memberCount === 'number'
+          ? source.memberCount
+          : typeof source.member_count === 'number'
+          ? source.member_count
+          : undefined,
+      totalMembers:
+        typeof source.totalMembers === 'number'
+          ? source.totalMembers
+          : typeof source.total_members === 'number'
+          ? source.total_members
+          : undefined,
+    };
+  };
+
   const loadTeams = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await api.get('/v1/teams');
-      const apiTeams = Array.isArray(res.data) ? (res.data as TeamItem[]) : [];
-      setTeams(apiTeams);
+      if (isAdminUser) {
+        const allTeams = await teamApi.getAllTeams();
+        setTeams((Array.isArray(allTeams) ? allTeams : []).map((team) => mapTeamToItem(team)));
+      } else {
+        const overview = await userApi.getCurrentUserTeamsOverview();
+        const userTeams = overview.teams;
+        if (!Array.isArray(userTeams) || userTeams.length === 0) {
+          setTeams([]);
+          return;
+        }
+
+        setTeams(userTeams.map((team) => mapTeamToItem(team)));
+      }
     } catch (error) {
       console.error('Failed to load teams:', error);
-      // Fallback to demo data if API fails
-      setTeams(DEMO_TEAMS);
+      setTeams([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdminUser]);
 
   // Category menus use closest-based click detection (no shared ref needed)
   // (clicks outside are detected via event.target.closest('[data-category-menu]'))
@@ -118,14 +236,40 @@ const TeamPage: React.FC = () => {
   useEffect(() => {
     loadTeams();
     dispatch(fetchCategories());
-    dispatch(fetchTeamsAction());
   }, [dispatch, loadTeams]);
 
-  // Check if user can create/edit/delete teams (Admin or Manager)
-  const canManageTeams = () => {
+  // Role permissions
+  const canCreateDeleteTeams = () => isAdminUser;
+
+  const canEditTeam = (team: TeamItem) => {
+    if (isAdminUser) return true;
     if (!user) return false;
-    const managerRoles = ['MANAGER', 'ADMIN', 'CEO', 'CTO', 'CFO', 'FOUNDER'];
-    return managerRoles.includes(user.role.toUpperCase());
+
+    const userId = String(user.id || '');
+    const userEmail = String(user.email || '').toLowerCase();
+
+    const leaderId = String(team.team_leader?.id || '');
+    const leaderEmail = String(team.team_leader?.email || '').toLowerCase();
+    if ((leaderId && leaderId === userId) || (leaderEmail && leaderEmail === userEmail)) {
+      return true;
+    }
+
+    return team.members.some((member) => {
+      const memberId = String(member.id || '');
+      const memberEmail = String(member.email || '').toLowerCase();
+      const isSameUser = (memberId && memberId === userId) || (memberEmail && memberEmail === userEmail);
+      return isSameUser && String(member.role || '').toUpperCase() === 'MANAGER';
+    });
+  };
+
+  const canManageSelectedTeamMembers = selectedTeam ? canEditTeam(selectedTeam) : false;
+
+  const getEntityId = (value: { id?: string; _id?: string } | null | undefined): string => {
+    return String(value?.id ?? value?._id ?? '');
+  };
+
+  const getTeamId = (team: TeamWithDetails | TeamItem): string => {
+    return getEntityId(team);
   };
 
   const departments = ['All', 'Engineering', 'Marketing', 'Sales', 'Design', 'Operations', 'HR', 'Finance'];
@@ -140,7 +284,11 @@ const TeamPage: React.FC = () => {
     return matchesSearch && matchesDepartment;
   });
 
-  const totalMembers = displayedTeams.reduce((sum, team) => sum + team.members.length, 0);
+  const activeTeam = displayedTeams.find((team) => getTeamId(team) === activeTeamId) || displayedTeams[0] || null;
+  const activeTeamMembers = activeTeam
+    ? activeTeam.members.length || activeTeam.memberCount || activeTeam.totalMembers || activeTeam.activeCount || 0
+    : 0;
+  const activeTeamBudget = activeTeam?.monthly_budget ?? activeTeam?.monthlyBudget ?? 0;
 
   // Team Management Functions
   const createTeam = async () => {
@@ -250,7 +398,7 @@ const TeamPage: React.FC = () => {
     setTeamActionMenuPosition(null);
   };
 
-  const handleTeamDeleteClick = (team: TeamWithDetails) => {
+  const handleTeamDeleteClick = (team: DeletableTeam) => {
     setTeamToDelete(team);
     setShowDeleteModal(true);
     setShowTeamActionMenu(null);
@@ -289,7 +437,7 @@ const TeamPage: React.FC = () => {
       await dispatch(deleteTeamAction(teamId)).unwrap();
       setShowDeleteModal(false);
       setTeamToDelete(null);
-      dispatch(fetchTeamsAction());
+      await loadTeams();
     } catch (error) {
       console.error('Failed to delete team:', error);
     }
@@ -325,14 +473,6 @@ const TeamPage: React.FC = () => {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
-  };
-
-  const getEntityId = (value: { id?: string; _id?: string } | null | undefined): string => {
-    return String(value?.id ?? value?._id ?? '');
-  };
-
-  const getTeamId = (team: TeamWithDetails | TeamItem): string => {
-    return getEntityId(team);
   };
 
   const getTeamCreatedAt = (team: TeamWithDetails | TeamItem): string => {
@@ -375,15 +515,6 @@ const TeamPage: React.FC = () => {
 
     setShowAddMemberModal(false);
     setNewMember({ firstName: '', lastName: '', email: '', role: '' as Role, teamId: '' });
-  };
-
-  const deleteMembers = async (teamId: string, memberIds: string[]) => {
-    setTeams(prev => prev.map(team => 
-      team.id === teamId 
-        ? { ...team, members: team.members.filter((m) => !memberIds.includes(getMemberId(m, 0))) }
-        : team
-    ));
-    setSelectedMembers([]);
   };
 
   const toggleMemberSelection = (memberId: string) => {
@@ -522,16 +653,7 @@ const TeamPage: React.FC = () => {
               <span className="hidden sm:inline">Create Category</span>
               <span className="sm:hidden">Category</span>
             </Button>
-            <Button 
-              onClick={() => setShowAddMemberModal(true)}
-              size="sm"
-              className="w-full sm:w-auto"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Add Member</span>
-              <span className="sm:hidden">Member</span>
-            </Button>
-            {canManageTeams() && (
+            {canCreateDeleteTeams() && (
               <Button 
                 onClick={() => navigate('/team/create')}
                 size="sm"
@@ -550,8 +672,8 @@ const TeamPage: React.FC = () => {
           <Card padding="lg" hover={true} className="bg-linear-to-br from-blue-50 to-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Teams</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">{displayedTeams.length}</p>
+                <p className="text-sm font-medium text-gray-600">Active Team</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2 truncate max-w-[180px]">{activeTeam?.name || 'N/A'}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                 <Users className="w-6 h-6 text-blue-600" />
@@ -562,8 +684,8 @@ const TeamPage: React.FC = () => {
           <Card padding="lg" hover={true} className="bg-linear-to-br from-green-50 to-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Members</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">{totalMembers}</p>
+                <p className="text-sm font-medium text-gray-600">Team Members</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">{activeTeamMembers}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
                 <Users className="w-6 h-6 text-green-600" />
@@ -578,8 +700,8 @@ const TeamPage: React.FC = () => {
           <Card padding="lg" hover={true} className="bg-linear-to-br from-pink-50 to-white sm:col-span-2 lg:col-span-1">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Categories</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">{categories.length}</p>
+                <p className="text-sm font-medium text-gray-600">Monthly Budget</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">{formatBudget(activeTeamBudget)}</p>
               </div>
               <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
                 <Tag className="w-6 h-6 text-pink-600" />
@@ -714,7 +836,7 @@ const TeamPage: React.FC = () => {
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Teams</h2>
-            {canManageTeams() && (
+            {canCreateDeleteTeams() && (
               <Button 
                 onClick={() => navigate('/team/create')}
                 size="sm"
@@ -726,17 +848,17 @@ const TeamPage: React.FC = () => {
           </div>
           
           <Card padding="none">
-            {teamsLoading ? (
+            {loading ? (
               <div className="p-12 text-center">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 <p className="mt-4 text-gray-600">Loading teams...</p>
               </div>
-            ) : reduxTeams.length === 0 ? (
+            ) : filteredTeams.length === 0 ? (
               <div className="p-12 text-center">
                 <Users className="w-16 h-16 mx-auto text-gray-400 mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No teams yet</h3>
                 <p className="text-gray-600 mb-6">Get started by creating your first team</p>
-                {canManageTeams() && (
+                {canCreateDeleteTeams() && (
                   <Button onClick={() => navigate('/team/create')}>
                     <Plus className="w-4 h-4 mr-2" />
                     Create Team
@@ -766,8 +888,10 @@ const TeamPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {reduxTeams.map((team, index) => {
+                    {filteredTeams.map((team, index) => {
                       const teamId = getTeamId(team) || `team-${index}`;
+                      const teamMembersCount =
+                        team.members.length || team.memberCount || team.totalMembers || team.activeCount || 0;
 
                       return (
                       <tr key={teamId} className="hover:bg-gray-50 transition-colors">
@@ -793,7 +917,7 @@ const TeamPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {team.members.length} {team.members.length === 1 ? 'member' : 'members'}
+                            {teamMembersCount} {teamMembersCount === 1 ? 'member' : 'members'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -824,7 +948,7 @@ const TeamPage: React.FC = () => {
                                   className="fixed w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50"
                                   style={{ top: teamActionMenuPosition.top, left: teamActionMenuPosition.left }}
                                 >
-                                  {canManageTeams() && (
+                                  {canEditTeam(team) && (
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -838,7 +962,7 @@ const TeamPage: React.FC = () => {
                                     </button>
                                   )}
 
-                                  {canManageTeams() && (
+                                  {canCreateDeleteTeams() && (
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -951,16 +1075,6 @@ const TeamPage: React.FC = () => {
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                   <h4 className="font-medium text-gray-900">All Team Members</h4>
-                  {selectedMembers.length > 0 && (
-                    <Button 
-                      variant="danger"
-                      size="sm"
-                      onClick={() => deleteMembers(selectedTeam.id, selectedMembers)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Selected ({selectedMembers.length})
-                    </Button>
-                  )}
                 </div>
                 
                 <div className="space-y-3">
@@ -1003,12 +1117,6 @@ const TeamPage: React.FC = () => {
                         <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
                           <Mail className="w-4 h-4" />
                         </button>
-                        <button 
-                          onClick={() => deleteMembers(selectedTeam.id, [memberId])}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
                     );
@@ -1017,11 +1125,20 @@ const TeamPage: React.FC = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
-                <Button variant="secondary" className="w-full sm:w-auto">
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Team
-                </Button>
-                <Button onClick={() => setShowAddMemberModal(true)} className="w-full sm:w-auto">
+                {canManageSelectedTeamMembers && (
+                  <Button variant="secondary" className="w-full sm:w-auto">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Team
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    setShowTeamModal(false);
+                    setSelectedTeam(null);
+                    navigate(`/team/edit/${selectedTeam.id}`);
+                  }}
+                  className="w-full sm:w-auto"
+                >
                   <UserPlus className="w-4 h-4 mr-2" />
                   Add Member
                 </Button>
@@ -1433,7 +1550,7 @@ const TeamPage: React.FC = () => {
                       return;
                     }
                     // Check if it's a Redux team (TeamWithDetails)
-                    if ('team_leader' in teamToDelete || reduxTeams.find(t => getTeamId(t) === teamId)) {
+                    if ('team_leader' in teamToDelete || displayedTeams.find((t) => getTeamId(t) === teamId)) {
                       handleTeamDeleteConfirm();
                     } else {
                       deleteTeam(teamId);

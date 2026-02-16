@@ -1,74 +1,38 @@
-import React, { useEffect, useState } from 'react';
 import Layout from '../../components/layout/Layout';
 import Card from '../../components/ui/Card';
 import SpendingLine from '../../components/charts/SpendingLine';
 import CategoryDonut from '../../components/charts/CategoryDonut';
-import api from '../../services/api';
+
 import { useAuth } from '../../context/AuthContext';
-import { userApi } from '../../features/users/userApi';
-import type { DashboardStats, ReadUserProfileResponse } from '../../types';
+
 
 const DashboardPage: React.FC = () => {
-  const { isAdmin, user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [spending, setSpending] = useState<{ date: string; value: number }[]>([]);
-  const [categories, setCategories] = useState<{ name: string; value: number }[]>([]);
-  const [userProfile, setUserProfile] = useState<ReadUserProfileResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin, user, userTeams, activeTeamId } = useAuth();
+  const activeTeamName = userTeams.find((team) => team.id === activeTeamId)?.name || '';
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [statsRes, spendingRes, categoriesRes, profileRes] = await Promise.all([
-          api.get('/dashboard/stats'),
-          api.get('/dashboard/spending'),
-          api.get('/dashboard/categories'),
-          userApi.readUserProfile()
-        ]);
-
-        setStats(statsRes.data);
-        setSpending(Array.isArray(spendingRes.data) ? spendingRes.data : []);
-        setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
-        setUserProfile(profileRes);
-        
-        // Log user profile data for debugging
-        if (profileRes) {
-          console.log('User Profile:', profileRes.user);
-          console.log('Default Team:', profileRes.defaultTeam);
-          console.log('Active Team:', profileRes.activeTeam);
-          console.log('All Teams:', profileRes.allTeams);
-        }
-      } catch (error) {
-        console.warn('Dashboard data fetch failed', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-        </div>
-      </Layout>
-    );
+  interface SpendingData {
+    date: string;
+    amount: number;
   }
+
+  interface CategoryData {
+    name: string;
+    value: number;
+  }
+
+  const spending: SpendingData[] = [];
+  const categories: CategoryData[] = [];
 
   return (
     <Layout>
       {/* Welcome Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, {userProfile?.user?.name || user?.fullName || 'User'}
+          Welcome back, {user?.fullName || 'User'}
         </h1>
         <p className="text-gray-600 mt-1">
-          {userProfile?.activeTeam 
-            ? `${userProfile.activeTeam.name} • Here's your expense overview`
+          {activeTeamName
+            ? `${activeTeamName} • Here's your expense overview`
             : "Here's your expense overview"
           }
         </p>
@@ -80,7 +44,7 @@ const DashboardPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Spent</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">${stats?.totalSpent ?? '0'}</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">$3000</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +58,7 @@ const DashboardPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Budget Left</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">${stats?.budgetLeft ?? '0'}</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">$1000</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,7 +72,7 @@ const DashboardPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.pendingApprovals ?? '0'}</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">5</p>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

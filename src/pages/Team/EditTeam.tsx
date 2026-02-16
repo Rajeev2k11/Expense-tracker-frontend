@@ -10,7 +10,6 @@ import type { Role, User } from '../../types';
 import { ArrowLeft, Users, Search, X, AlertCircle, UserPlus, Trash2 } from 'lucide-react';
 
 type TeamRole = 'Manager' | 'Member' | 'Admin' | 'CEO' | 'CTO' | Role;
-type LeaderRole = 'Manager' | 'Admin' | 'CEO' | 'CTO';
 
 interface EditableMember {
   id: string;
@@ -25,6 +24,7 @@ const EditTeam: React.FC = () => {
   const navigate = useNavigate();
   const { teamId } = useParams<{ teamId: string }>();
   const { user } = useAuth();
+  const isAdminUser = user?.role?.toUpperCase() === 'ADMIN';
 
   const [formData, setFormData] = useState({
     name: '',
@@ -35,9 +35,7 @@ const EditTeam: React.FC = () => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [members, setMembers] = useState<EditableMember[]>([]);
-  const [initialMemberIds, setInitialMemberIds] = useState<string[]>([]);
-  const [leaderMemberId, setLeaderMemberId] = useState<string>('');
-  const [leaderRole, setLeaderRole] = useState<LeaderRole>('Manager');
+  const [changedRoles, setChangedRoles] = useState<Record<string, TeamRole>>({});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,7 +46,22 @@ const EditTeam: React.FC = () => {
     return String(candidate?.id ?? candidate?._id ?? '');
   };
 
-  const normalizeUser = useCallback((member: unknown): EditableMember | null => {
+  const normalizeTeamRole = (rawRole: unknown, isLeader = false): TeamRole => {
+    if (isLeader) return 'Manager';
+
+    const roleUpper = String(rawRole || '').toUpperCase().trim();
+    if (
+      roleUpper === 'MANAGER' ||
+      roleUpper === 'TEAM LEADER' ||
+      roleUpper === 'TEAM_LEADER' ||
+      roleUpper === 'LEADER'
+    ) {
+      return 'Manager';
+    }
+    return 'Member';
+  };
+
+  const normalizeUser = useCallback((member: unknown, leaderId?: string): EditableMember | null => {
     const raw = member as {
       id?: string;
       _id?: string;
@@ -57,37 +70,35 @@ const EditTeam: React.FC = () => {
       username?: string;
       email?: string;
       role?: string;
+      member_type?: string;
+      team_role?: string;
+      teamRole?: string;
+      user_type?: string;
     };
 
     const id = getEntityId(raw);
     if (!id) return null;
 
     const fullName = raw.fullName || raw.name || raw.username || raw.email || 'Unknown User';
+    const isLeader = !!leaderId && id === leaderId;
+    const resolvedTeamRole = normalizeTeamRole(
+      raw.member_type ?? raw.team_role ?? raw.teamRole ?? raw.role ?? raw.user_type,
+      isLeader
+    );
 
     return {
       id,
       fullName,
       email: raw.email || 'No email',
-      role: (raw.role as TeamRole) || 'Member',
+      role: resolvedTeamRole,
       isExisting: true,
-      originalRole: (raw.role as TeamRole) || 'Member',
+      originalRole: resolvedTeamRole,
     };
   }, []);
-
-  const canManageTeams = useCallback(() => {
-    if (!user) return false;
-    const managerRoles = ['MANAGER', 'ADMIN', 'CEO', 'CTO', 'CFO', 'FOUNDER'];
-    return managerRoles.includes(user.role.toUpperCase());
-  }, [user]);
 
   useEffect(() => {
     if (!user) {
       navigate('/auth/login');
-      return;
-    }
-
-    if (!canManageTeams()) {
-      navigate('/team');
       return;
     }
 
@@ -106,47 +117,36 @@ const EditTeam: React.FC = () => {
           userApi.getAllUsers(),
         ]);
 
+        const currentUserId = String(user.id || '');
+        const currentUserEmail = String(user.email || '').toLowerCase();
+        const isAdmin = user.role.toUpperCase() === 'ADMIN';
+
         setFormData({
           name: team.name || '',
           description: team.description || '',
           monthly_budget: String(team.monthly_budget || ''),
         });
 
-        const teamLeaderRaw = team.team_leader as unknown as {
-          id?: string;
-          _id?: string;
-          fullName?: string;
-          name?: string;
-          username?: string;
-          email?: string;
-          role?: string;
-        };
-        const teamLeaderId = getEntityId(teamLeaderRaw);
-        const normalizedLeader = normalizeUser(teamLeaderRaw);
-        const normalizedLeaderRole = ((teamLeaderRaw?.role as LeaderRole) || 'Manager') as LeaderRole;
+        const teamLeaderId = getEntityId(team.team_leader);
 
         const normalizedMembers = (team.members || [])
-          .map((member) => normalizeUser(member))
+          .map((member) => normalizeUser(member, teamLeaderId))
           .filter((member): member is EditableMember => !!member);
 
-        const membersWithLeader = [...normalizedMembers];
-        const hasLeaderInMembers = teamLeaderId && membersWithLeader.some((member) => member.id === teamLeaderId);
+        const currentUserMember = normalizedMembers.find((member) => {
+          const memberEmail = String(member.email || '').toLowerCase();
+          return member.id === currentUserId || (memberEmail && memberEmail === currentUserEmail);
+        });
 
-        if (normalizedLeader && teamLeaderId && !hasLeaderInMembers) {
-          membersWithLeader.unshift({
-            ...normalizedLeader,
-            role: normalizedLeaderRole,
-            originalRole: normalizedLeaderRole,
-          });
+        const isTeamManager = String(currentUserMember?.role || '').toUpperCase() === 'MANAGER';
+
+        if (!isAdmin && !isTeamManager) {
+          navigate('/team');
+          return;
         }
 
-        if (teamLeaderId) {
-          setLeaderMemberId(teamLeaderId);
-          setLeaderRole(normalizedLeaderRole);
-        }
-
-        setMembers(membersWithLeader);
-        setInitialMemberIds(membersWithLeader.map((member) => member.id));
+        setMembers(normalizedMembers);
+        setChangedRoles({});
         setAllUsers(users);
       } catch (err) {
         console.error('Failed to load team details:', err);
@@ -157,7 +157,7 @@ const EditTeam: React.FC = () => {
     };
 
     loadData();
-  }, [canManageTeams, navigate, normalizeUser, teamId, user]);
+  }, [navigate, normalizeUser, teamId, user]);
 
   const selectedMemberIds = useMemo(() => new Set(members.map((member) => member.id)), [members]);
 
@@ -183,9 +183,8 @@ const EditTeam: React.FC = () => {
   };
 
   const handleRoleChange = (memberId: string, role: TeamRole) => {
-    if (memberId === leaderMemberId) {
-      setLeaderRole(role as LeaderRole);
-    }
+    const targetMember = members.find((member) => member.id === memberId);
+    if (!targetMember) return;
 
     setMembers((prev) =>
       prev.map((member) =>
@@ -197,6 +196,16 @@ const EditTeam: React.FC = () => {
           : member
       )
     );
+
+    setChangedRoles((prev) => {
+      const next = { ...prev };
+      if (role === targetMember.originalRole) {
+        delete next[memberId];
+      } else {
+        next[memberId] = role;
+      }
+      return next;
+    });
   };
 
   const handleAddMember = (candidate: User) => {
@@ -217,8 +226,13 @@ const EditTeam: React.FC = () => {
   };
 
   const handleRemoveMember = (memberId: string) => {
-    if (memberId === leaderMemberId) return;
     setMembers((prev) => prev.filter((member) => member.id !== memberId));
+    setChangedRoles((prev) => {
+      if (!(memberId in prev)) return prev;
+      const next = { ...prev };
+      delete next[memberId];
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -240,39 +254,28 @@ const EditTeam: React.FC = () => {
     setError(null);
 
     try {
-      const addedMembers = members.filter((member) => !initialMemberIds.includes(member.id));
-      const removedMemberIds = initialMemberIds.filter(
-        (memberId) => !members.some((member) => member.id === memberId)
-      );
+      const memberIds = members.map((member) => member.id);
 
-      const roleChanges = members.filter((member) => {
-        if (!member.role) return false;
-        if (!member.isExisting) return true;
-        return member.role !== member.originalRole;
-      });
+      const roleChanges = isAdminUser
+        ? members
+            .filter((member) => !!changedRoles[member.id])
+            .map((member) => ({
+              id: member.id,
+              role: changedRoles[member.id],
+            }))
+        : [];
 
       await teamApi.updateTeam(teamId, {
         name: formData.name.trim(),
         description: formData.description.trim(),
         monthly_budget: Number(formData.monthly_budget),
+        members: memberIds,
       });
 
-      if (addedMembers.length > 0) {
-        await Promise.all(
-          addedMembers.map((member) => teamApi.addTeamMember(teamId, { userId: member.id }))
-        );
-      }
-
-      if (removedMemberIds.length > 0) {
-        await Promise.all(
-          removedMemberIds.map((memberId) => teamApi.removeTeamMember(teamId, memberId))
-        );
-      }
-
-      if (roleChanges.length > 0) {
+      if (isAdminUser && roleChanges.length > 0) {
         await Promise.all(
           roleChanges.map((member) =>
-            teamApi.updateTeamMemberRole(teamId, member.id, { role: String(member.role) })
+            teamApi.updateTeamMemberRole(teamId, member.id, { role: String(member.role).toUpperCase() })
           )
         );
       }
@@ -386,35 +389,25 @@ const EditTeam: React.FC = () => {
                       <p className="text-sm text-gray-600 truncate">{member.email}</p>
                     </div>
                     <div className="flex items-center gap-3 ml-4">
-                      <select
-                        value={member.id === leaderMemberId ? leaderRole : member.role}
-                        onChange={(e) => handleRoleChange(member.id, e.target.value as TeamRole)}
-                        className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {member.id === leaderMemberId ? (
-                          <>
-                            <option value="Manager">Manager</option>
-                            <option value="Admin">Admin</option>
-                            <option value="CEO">CEO</option>
-                            <option value="CTO">CTO</option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="Member">Member</option>
-                            <option value="Manager">Manager</option>
-                          </>
-                        )}
-                      </select>
+                      {isAdminUser ? (
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleRoleChange(member.id, e.target.value as TeamRole)}
+                          className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="Member">Member</option>
+                          <option value="Manager">Manager</option>
+                        </select>
+                      ) : (
+                        <span className="px-2 py-1 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                          {member.role}
+                        </span>
+                      )}
 
                       <button
                         type="button"
                         onClick={() => handleRemoveMember(member.id)}
-                        disabled={member.id === leaderMemberId}
-                        className={`p-1 rounded-md transition-colors ${
-                          member.id === leaderMemberId
-                            ? 'text-gray-300 cursor-not-allowed'
-                            : 'text-red-600 hover:bg-red-100'
-                        }`}
+                        className="p-1 rounded-md transition-colors text-red-600 hover:bg-red-100"
                         title="Remove member"
                       >
                         <Trash2 className="w-4 h-4" />
