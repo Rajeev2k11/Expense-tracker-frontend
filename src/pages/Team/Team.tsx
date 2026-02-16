@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Layout from '../../components/layout/Layout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -22,7 +22,7 @@ import type { Category } from '../../features/categories/categoryApi';
 
 const TeamPage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { categories, loading: categoriesLoading, creating: creatingCategory, updating: updatingCategory, deleting: deletingCategory } = useAppSelector((state) => state.categories);
+  const { categories, creating: creatingCategory, updating: updatingCategory } = useAppSelector((state) => state.categories);
   
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,54 +68,8 @@ const TeamPage: React.FC = () => {
   // Category menus use closest-based click detection (no shared ref needed)
   // (clicks outside are detected via event.target.closest('[data-category-menu]'))
 
-  useEffect(() => {
-    loadTeams();
-    dispatch(fetchCategories());
-  }, [dispatch]);
-
-  const loadTeams = async () => {
-    try {
-      const res = await api.get('/teams');
-      setTeams(res.data);
-    } catch (error) {
-      console.error('Failed to load teams:', error);
-      // Fallback to demo data if API fails
-      setTeams(demoTeams);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Demo categories removed - now using Redux state
-  const demoCategories: Category[] = [
-    {
-      id: '1',
-      name: 'Development',
-      description: 'Software development and programming tasks',
-      color: '#3B82F6',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: '2',
-      name: 'Marketing',
-      description: 'Marketing campaigns and promotions',
-      color: '#10B981',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: '3',
-      name: 'Design',
-      description: 'UI/UX design and creative work',
-      color: '#8B5CF6',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ];
-
   // Demo data for teams
-  const demoTeams: Team[] = [
+  const demoTeams: Team[] = useMemo(() => [
     {
       id: '1',
       name: 'Frontend Team',
@@ -160,10 +114,27 @@ const TeamPage: React.FC = () => {
         }
       ]
     }
-  ];
+  ], []);
 
   const departments = ['All', 'Engineering', 'Marketing', 'Sales', 'Design', 'Operations', 'HR', 'Finance'];
   const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316'];
+
+  useEffect(() => {
+    const loadTeams = async () => {
+      try {
+        const res = await api.get('/teams');
+        setTeams(res.data);
+      } catch (error) {
+        console.error('Failed to load teams:', error);
+        setTeams(demoTeams);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTeams();
+    dispatch(fetchCategories());
+  }, [dispatch, demoTeams]);
 
   const displayedTeams = teams.length > 0 ? teams : demoTeams;
 
@@ -210,9 +181,14 @@ const TeamPage: React.FC = () => {
     }
   };
 
+  const getCategoryId = (category: Category | null): string | undefined => {
+    if (!category) return undefined;
+    return category.id || (category as Category & { _id?: string })._id;
+  };
+
   const updateCategory = async () => {
     if (!selectedCategory || !categoryForm.name || !categoryForm.description) return;
-    const idToUse = (selectedCategory as any).id || (selectedCategory as any)._id;
+    const idToUse = getCategoryId(selectedCategory);
     if (!idToUse) {
       alert('Category id is missing. Please reopen the edit modal and try again.');
       return;
@@ -239,7 +215,7 @@ const TeamPage: React.FC = () => {
 
   const deleteCategory = async (category: Category) => {
     try {
-      const idToUse = (category as any).id || (category as any)._id;
+      const idToUse = getCategoryId(category);
       if (!idToUse) throw new Error('Category id missing');
       await dispatch(deleteCategoryAction(idToUse)).unwrap();
       setShowDeleteModal(false);

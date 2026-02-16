@@ -53,7 +53,7 @@ interface Invite {
 
 const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { loading: inviteLoading, error: inviteError, success: inviteSuccess } = useAppSelector(
+  const { loading: inviteLoading, error: inviteError } = useAppSelector(
     (state) => state.invite
   );
 
@@ -185,11 +185,12 @@ const AdminDashboard: React.FC = () => {
 
   // Initialize team members
   React.useEffect(() => {
-    const updatedTeams = teams.map(team => ({
-      ...team,
-      members: employees.filter(emp => emp.team === team.name)
-    }));
-    setTeams(updatedTeams);
+    setTeams(prevTeams =>
+      prevTeams.map(team => ({
+        ...team,
+        members: employees.filter(emp => emp.team === team.name),
+      }))
+    );
   }, [employees]);
 
   const handleInvite = async (e: React.FormEvent) => {
