@@ -4,6 +4,7 @@ import inviteReducer from './features/invite/inviteSlice';
 import loginReducer from './features/auth/loginSlice';
 import categoryReducer from './features/categories/categorySlice';
 import teamReducer from './features/teams/teamSlice';
+import expenseReducer from './features/expenses/expenseSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     auth: loginReducer,
     categories: categoryReducer,
     teams: teamReducer,
+    expenses: expenseReducer,
   },
 });
 

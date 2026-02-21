@@ -32,7 +32,9 @@ export const teamApi = {
   },
 
   getTeamById: async (id: string): Promise<TeamWithDetails> => {
-    const response = await api.get<TeamWithDetails>(`/v1/teams/${id}`);
+    const response = await api.get<TeamWithDetails>(`/v1/teams/${id}`, {
+      params: import.meta.env.DEV ? { _t: Date.now() } : undefined,
+    });
     return response.data;
   },
 

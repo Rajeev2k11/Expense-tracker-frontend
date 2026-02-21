@@ -24,7 +24,9 @@ export interface UpdateCategoryPayload {
 export const categoryApi = {
   // Get all categories
   getCategories: async (): Promise<Category[]> => {
-    const response = await api.get<Category[]>('/v1/categories/list');
+    const response = await api.get<Category[]>('/v1/categories/list', {
+      params: import.meta.env.DEV ? { _t: Date.now() } : undefined,
+    });
     // Normalize categories to ensure we have an `id` (fallback to `_id`)
     const normalized = (response.data || []).map((c: Category & { _id?: string }) => ({ 
       ...(c || {}), 

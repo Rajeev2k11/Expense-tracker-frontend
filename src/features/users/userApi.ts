@@ -77,7 +77,9 @@ const normalizeTeamDetails = (team: {
 
 export const userApi = {
   readUserProfile: async (): Promise<ReadUserProfileResponse> => {
-    const response = await api.get<ReadUserProfileResponse>('/v1/users/readUserProfile');
+    const response = await api.get<ReadUserProfileResponse>('/v1/users/readUserProfile', {
+      params: import.meta.env.DEV ? { _t: Date.now() } : undefined,
+    });
     return response.data;
   },
 
